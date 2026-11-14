@@ -1,0 +1,77 @@
+{
+ "version": 1,
+ "sample": true,
+ "_comment": "예시 구역입니다. 실제 단속 위치·운영 시간이 아닙니다. 실제 데이터 형식과 변환은 docs/zone-data.md 참고.",
+ "zones": [
+  {
+   "id": "demo-bus-1",
+   "kind": "BUS_LANE",
+   "name": "예시 버스전용차로",
+   "corridor": {
+    "halfWidthM": 12,
+    "points": [
+     [
+      33.4885,
+      126.498
+     ],
+     [
+      33.492,
+      126.498
+     ]
+    ]
+   },
+   "schedule": [
+    {
+     "days": "MON-FRI",
+     "start": "07:00",
+     "end": "09:00"
+    },
+    {
+     "days": "MON-FRI",
+     "start": "17:00",
+     "end": "19:00"
+    }
+   ]
+  },
+  {
+   "id": "demo-school-1",
+   "kind": "SCHOOL_ZONE",
+   "name": "예시 어린이보호구역",
+   "limitKmh": 30,
+   "circle": {
+    "lat": 33.4945,
+    "lng": 126.498,
+    "radiusM": 150
+   }
+  },
+  {
+   "id": "demo-right-1",
+   "kind": "RIGHT_TURN",
+   "name": "예시 우회전 교차로",
+   "rightTurnSignal": true,
+   "circle": {
+    "lat": 33.4985,
+    "lng": 126.498,
+    "radiusM": 20
+   }
+  },
+  {
+   "id": "demo-cctv-1",
+   "kind": "PARKING_ENFORCEMENT",
+   "name": "예시 주정차 단속",
+   "graceMinutes": 2,
+   "circle": {
+    "lat": 33.4985,
+    "lng": 126.502,
+    "radiusM": 40
+   },
+   "schedule": [
+    {
+     "days": "ALL",
+     "start": "07:00",
+     "end": "22:00"
+    }
+   ]
+  }
+ ]
+}

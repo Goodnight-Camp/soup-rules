@@ -1,0 +1,30 @@
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+ <uses-permission android:name="android.permission.FOREGROUND_SERVICE"/>
+ <uses-permission android:name="android.permission.FOREGROUND_SERVICE_LOCATION"/>
+ <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
+ <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION"/>
+ <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION"/>
+ <uses-permission android:name="android.permission.RECORD_AUDIO"/>
+ <!-- AAOS 차량 신호(읽기 전용): 차속은 런타임 권한, 기어는 일반 권한, 깜빡이는 시스템 권한(Pleos 경로가 기본) -->
+ <uses-permission android:name="android.car.permission.CAR_SPEED"/>
+ <uses-permission android:name="android.car.permission.CAR_POWERTRAIN"/>
+ <uses-permission android:name="android.car.permission.CAR_EXTERIOR_LIGHTS"/>
+ <!-- Pleos Connect SDK -->
+ <uses-permission android:name="pleos.car.permission.CAR_LIGHTS"/>
+ <uses-permission android:name="pleos.car.permission.CAR_DRIVE"/>
+ <uses-permission android:name="pleos.car.permission.TTS_SERVICE"/>
+ <uses-permission android:name="pleos.car.permission.STT_SERVICE"/>
+ <uses-permission android:name="pleos.car.permission.FUSED_LOCATION"/>
+ <uses-feature android:name="android.hardware.type.automotive" android:required="true"/>
+ <application android:name=".SoupApp" android:label="Korea Road Rules" android:icon="@drawable/ic_app" android:theme="@style/Theme.Soup"
+  android:allowBackup="false" android:dataExtractionRules="@xml/data_extraction_rules" android:supportsRtl="true">
+  <uses-library android:name="android.car" android:required="false"/>
+  <activity android:name=".MainActivity" android:exported="true" android:screenOrientation="landscape" android:resizeableActivity="true"
+   android:configChanges="orientation|screenSize|screenLayout|smallestScreenSize|locale|layoutDirection" android:launchMode="singleTop">
+   <intent-filter><action android:name="android.intent.action.MAIN"/><category android:name="android.intent.category.LAUNCHER"/></intent-filter>
+   <!-- 렌터카 체크인 연동: lang 또는 licenseCountry extra로 운전자 언어를 맞춥니다. -->
+   <intent-filter><action android:name="com.goodnight.souprules.RENTAL_START"/><category android:name="android.intent.category.DEFAULT"/></intent-filter>
+  </activity>
+  <service android:name=".service.CoachService" android:exported="false" android:foregroundServiceType="location"/>
+ </application>
+</manifest>

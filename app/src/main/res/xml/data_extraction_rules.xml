@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 운전 기록(과태료 직전 순간)은 차량 밖으로 백업·이전하지 않습니다. -->
+<data-extraction-rules>
+ <cloud-backup><exclude domain="sharedpref" path="."/></cloud-backup>
+ <device-transfer><exclude domain="sharedpref" path="."/></device-transfer>
+</data-extraction-rules>

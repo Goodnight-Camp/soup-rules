@@ -1,0 +1,8 @@
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+ <application>
+  <!-- 디버그 전용 차량 신호 흉내(adb shell am broadcast). release 빌드에는 포함되지 않습니다. -->
+  <receiver android:name=".debug.DebugSignalReceiver" android:exported="true">
+   <intent-filter><action android:name="com.goodnight.souprules.DEBUG"/></intent-filter>
+  </receiver>
+ </application>
+</manifest>
