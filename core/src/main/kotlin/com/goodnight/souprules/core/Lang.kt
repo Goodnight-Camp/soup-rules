@@ -4,10 +4,13 @@ import java.util.Locale
 
 /**
  * 운전자 언어. 렌터카 이용 외국인 상위 국가(싱가포르·말레이시아·홍콩, 2018 제주)와 협약국 관광객·국내 거주 외국인을 기준으로 골랐습니다.
- * [voiceTags]는 Pleos STT/TTS에 넘길 로케일 후보 순서입니다(앞에서부터 시도).
+ * [voiceTags]는 그 언어의 로케일 후보입니다. 실제로 엔진에 넘기는 것은 [OfficialVoice]에 있는 로케일뿐이고,
+ * 나머지 언어는 화면 문구만 운전자 언어로 보여 주고 음성은 영어로 안내합니다.
  */
 enum class Lang(val tag:String,val nativeName:String,val voiceTags:List<String>) {
- EN("en","English",listOf("en-US","en-GB")),
+ EN("en","English",listOf("en-US")),
+ FR("fr","Français",listOf("fr-CA")),
+ ES("es","Español",listOf("es-US","es-MX")),
  KO("ko","한국어",listOf("ko-KR")),
  JA("ja","日本語",listOf("ja-JP")),
  ZH_HANS("zh-Hans","简体中文",listOf("zh-CN")),
@@ -19,6 +22,8 @@ enum class Lang(val tag:String,val nativeName:String,val voiceTags:List<String>)
  ID("id","Bahasa Indonesia",listOf("id-ID"));
 
  val voiceLocales:List<Locale> get()=voiceTags.map(Locale::forLanguageTag)
+ /** Pleos 공식 STT/TTS 로케일로 이 언어 음성을 낼 수 있는지. */
+ val voiceSupported get()=voiceTags.any { it in OfficialVoice.locales }
 
  companion object {
   /** "zh-HK", "zh_TW", "zh-Hant-HK", "en-SG", "in-ID"(구형 인도네시아어 코드) 등 → Lang. */
@@ -27,7 +32,7 @@ enum class Lang(val tag:String,val nativeName:String,val voiceTags:List<String>)
    val l=Locale.forLanguageTag(tag.trim().replace('_','-'))
    val language=l.language.lowercase().let { if(it=="in") "id" else it }
    return when(language) {
-    "en"->EN; "ko"->KO; "ja"->JA; "ms"->MS; "th"->TH; "vi"->VI; "id"->ID
+    "en"->EN; "ko"->KO; "ja"->JA; "ms"->MS; "th"->TH; "vi"->VI; "id"->ID; "fr"->FR; "es"->ES
     "zh"->when {
      l.script.equals("Hant",true)->ZH_HANT
      l.script.equals("Hans",true)->ZH_HANS
@@ -40,12 +45,27 @@ enum class Lang(val tag:String,val nativeName:String,val voiceTags:List<String>)
  }
 }
 
+/**
+ * Pleos SpeechToText/TextToSpeech SDK 3.3.1이 공식 지원하는 로케일(STT·TTS 동일, Pleos 문서).
+ * 목록 밖의 로케일은 엔진이 받아들이더라도 다른 언어 목소리로 읽을 수 있어 시도하지 않습니다.
+ * 실제 차량에서 더 지원되는지는 디버그 voice_probe로 따로 확인합니다.
+ */
+object OfficialVoice {
+ val locales=setOf("ko-KR","en-US","fr-CA","es-US","es-MX")
+}
+
 /** 면허 발급국(ISO 3166-1 alpha-2) → 기본 언어. 렌터카 체크인 정보로 언어를 미리 맞출 때 씁니다. */
 object CountryLanguage {
  private val map=mapOf(
   "SG" to Lang.EN,"MY" to Lang.MS,"BN" to Lang.MS,
   "HK" to Lang.ZH_HANT,"TW" to Lang.ZH_HANT,"MO" to Lang.ZH_HANT,"CN" to Lang.ZH_HANS,
   "JP" to Lang.JA,"TH" to Lang.TH,"VN" to Lang.VI,"ID" to Lang.ID,"KR" to Lang.KO,
+  // 프랑스어권(캐나다는 영어·프랑스어 공용이라 영어로 시작하고 직접 고르게 함)
+  "FR" to Lang.FR,"BE" to Lang.FR,"LU" to Lang.FR,"MC" to Lang.FR,
+  // 스페인어권
+  "ES" to Lang.ES,"MX" to Lang.ES,"AR" to Lang.ES,"CL" to Lang.ES,"CO" to Lang.ES,"PE" to Lang.ES,"UY" to Lang.ES,"PY" to Lang.ES,
+  "VE" to Lang.ES,"EC" to Lang.ES,"BO" to Lang.ES,"GT" to Lang.ES,"CR" to Lang.ES,"PA" to Lang.ES,"DO" to Lang.ES,"HN" to Lang.ES,
+  "SV" to Lang.ES,"NI" to Lang.ES,"CU" to Lang.ES,
  )
  fun of(country:String?):Lang?=country?.trim()?.uppercase()?.takeIf { it.length==2 }?.let { map[it]?:Lang.EN }
 

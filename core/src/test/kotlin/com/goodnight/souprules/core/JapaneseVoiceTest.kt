@@ -33,8 +33,10 @@ class JapaneseVoiceTest {
   assertEquals(Command.SwitchLanguage(Lang.MS),CommandParser.parse("マレー語"))
   assertEquals(Command.SwitchLanguage(Lang.JA),CommandParser.parse("にほんご"))
  }
- @Test fun japaneseVoiceChainTriesJaJpThenEnglish() {
-  assertEquals(listOf("ja-JP","en-US","en-GB"),VoiceNegotiator(Lang.JA).chain.map { it.locale.toLanguageTag() })
+ @Test fun japaneseVoiceFallsBackToEnglish() {
+  // ja-JP는 Pleos 공식 로케일이 아니어서 음성은 영어입니다(화면 문구는 일본어).
+  assertEquals(listOf("en-US"),VoiceNegotiator(Lang.JA).chain.map { it.locale.toLanguageTag() })
+  assertFalse(Lang.JA.voiceSupported)
  }
  @Test fun probeTargetsAndReport() {
   val t=VoiceProbe.targets().map { it.first }

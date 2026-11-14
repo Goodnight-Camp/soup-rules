@@ -27,7 +27,13 @@
 
 ## 음성 SpeechToText / TextToSpeech 3.3.1
 
-- `SpeechToText(context, Mode.ON_DEVICE)`, `TextToSpeech(context, Mode.ON_DEVICE)`. Mode에는 HYBRID·SERVER도 있지만 `registerApp` 키가 필요해 쓰지 않습니다.
+- **공식 지원 로케일(STT·TTS 동일, Pleos 문서):** ko-KR, en-US, fr-CA, es-US, es-MX. `OfficialVoice.locales`에 그대로 넣었고, 이 밖의 로케일은 시도하지 않습니다.
+- 모드는 3가지입니다. 지금은 ON_DEVICE를 씁니다. HYBRID·SERVER를 쓰려면 Pleos My Project 자격 증명으로 `registerApp`을 해야 합니다.
+  - **HYBRID(기본값):** 서버를 우선 쓰고, 연결에 실패하면 온디바이스로 넘어갑니다.
+  - **SERVER:** 서버만 씁니다.
+  - **ON_DEVICE:** 네트워크와 자격 증명이 필요 없습니다.
+- STT SDK는 텍스트만 돌려줍니다. 차량 기기 제어 명령을 실행하려면 Gleo Interface를 따로 연동해야 합니다.
+- `SpeechToText(context, Mode.ON_DEVICE)`, `TextToSpeech(context, Mode.ON_DEVICE)`.
 - `initialize(OnInitializeListener)`가 성공한 뒤에 `addListener`/`addEventListener`를 붙입니다(초기화 전 등록 시 lateinit 예외, autolog 실측).
 - `setLocale(Locale)`: 국가를 포함한 태그를 넘깁니다. `ko`는 `unsupported locale: ko-`로 거부됩니다(autolog 2026-11-12 로그).
 - 오류 enum은 STT/TTS 모두 `UNAVAILABLE_LANGUAGE`를 갖습니다. 이 오류나 `setLocale` 예외가 나면 다음 로케일 후보로 넘어갑니다(`VoiceNegotiator`).
@@ -35,7 +41,7 @@
 - STT: `request()` → `ResultListener.onUpdated(text, isFinal)`의 최종 결과만 씁니다. 8초 안에 결과가 없으면 `stop()`합니다. 듣기 전에 TTS를 멈춰 안내 음성이 다시 인식되지 않게 합니다.
 - 권한: `pleos.car.permission.STT_SERVICE`, `TTS_SERVICE`, `RECORD_AUDIO`.
 - Gleo AI: 앱이 직접 쓰는 Gleo 받아쓰기 API는 없습니다. 이 SDK가 caas SpeechService(Gleo 모델 공유)에 바인딩하는 공개 경로입니다(autolog 확인 내용).
-- **미확인:** 온디바이스 엔진이 ko-KR 말고 어떤 로케일을 지원하는지 모릅니다. 실차나 Pleos 에뮬레이터에서 언어별로 `UNAVAILABLE_LANGUAGE` 여부를 확인해야 합니다.
+- **미확인:** 국내 사양 차량의 온디바이스 엔진에 fr-CA·es-US·es-MX 모델이 실제로 들어 있는지는 확인하지 못했습니다(실측으로 확인된 것은 ko-KR). `voice_probe`로 확인해야 합니다. 없으면 HYBRID(서버)가 대안입니다.
 
 ## FusedLocation 1.1.3
 
