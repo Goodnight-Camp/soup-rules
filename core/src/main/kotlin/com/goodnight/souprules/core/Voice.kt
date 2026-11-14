@@ -80,6 +80,10 @@ sealed interface Command {
  */
 object CommandParser {
  private val languageNames:List<Pair<String,Lang>> =listOf(
+  // 일본어 STT는 한자·히라가나·가타카나 어느 쪽으로도 나올 수 있어 모두 넣습니다.
+  "インドネシア語" to Lang.ID,"インドネシア" to Lang.ID,"マレー語" to Lang.MS,"マレーシア語" to Lang.MS,
+  "えいご" to Lang.EN,"かんこくご" to Lang.KO,"ちゅうごくご" to Lang.ZH_HANS,"中国語" to Lang.ZH_HANS,"台湾語" to Lang.ZH_HANT,"繁体字" to Lang.ZH_HANT,"簡体字" to Lang.ZH_HANS,
+  "タイ語" to Lang.TH,"たいご" to Lang.TH,"ベトナム語" to Lang.VI,"べとなむご" to Lang.VI,
   "bahasa indonesia" to Lang.ID,"indonesian" to Lang.ID,"indonesia" to Lang.ID,
   "bahasa melayu" to Lang.MS,"melayu" to Lang.MS,"malay" to Lang.MS,
   "english" to Lang.EN,"영어" to Lang.EN,"英語" to Lang.EN,"英语" to Lang.EN,"อังกฤษ" to Lang.EN,"tiếng anh" to Lang.EN,"inggeris" to Lang.EN,"inggris" to Lang.EN,
@@ -90,11 +94,11 @@ object CommandParser {
   "ภาษาไทย" to Lang.TH,"thai" to Lang.TH,"태국어" to Lang.TH,
   "tiếng việt" to Lang.VI,"vietnamese" to Lang.VI,"베트남어" to Lang.VI,
  )
- private val unmute=listOf("unmute","voice on","sound on","소리 켜","음성 켜","ミュート解除","音声オン","取消静音","打开声音","取消靜音","打開聲音","buka suara","hidupkan suara","bunyi semula","nyalakan suara","เปิดเสียง","bật tiếng","bật giọng")
- private val mute=listOf("mute","quiet","silence","be quiet","조용","음소거","소리 꺼","음성 꺼","ミュート","静かに","静音","安静","靜音","安靜","senyap","diam","bisukan","เงียบ","ปิดเสียง","im lặng","tắt tiếng")
- private val repeat=listOf("repeat","again","say that again","what","다시","반복","뭐라고","もう一度","繰り返","なんて","再说","重复","再說","重複","ulang","sekali lagi","อีกครั้ง","พูดซ้ำ","nhắc lại","lặp lại")
- private val summary=listOf("summary","today","how did i do","요약","오늘","まとめ","今日","总结","總結","今天","ringkasan","hari ini","สรุป","วันนี้","tóm tắt","hôm nay")
- private val help=listOf("help","도움","도와","ヘルプ","助けて","帮助","幫助","bantuan","tolong","ช่วย","trợ giúp","giúp")
+ private val unmute=listOf("unmute","voice on","sound on","소리 켜","음성 켜","ミュート解除","みゅーとかいじょ","音声オン","おんせいおん","音を出して","おとをだして","音声を出して","取消静音","打开声音","取消靜音","打開聲音","buka suara","hidupkan suara","bunyi semula","nyalakan suara","เปิดเสียง","bật tiếng","bật giọng")
+ private val mute=listOf("mute","quiet","silence","be quiet","조용","음소거","소리 꺼","음성 꺼","ミュート","みゅーと","静かに","しずかに","黙って","だまって","音を消して","おとをけして","静音","安静","靜音","安靜","senyap","diam","bisukan","เงียบ","ปิดเสียง","im lặng","tắt tiếng")
+ private val repeat=listOf("repeat","again","say that again","what","다시","반복","뭐라고","もう一度","もういちど","もう1度","もっかい","繰り返","くりかえ","リピート","なんて","何て","再说","重复","再說","重複","ulang","sekali lagi","อีกครั้ง","พูดซ้ำ","nhắc lại","lặp lại")
+ private val summary=listOf("summary","today","how did i do","요약","오늘","まとめ","今日","きょう","サマリー","さまりー","总结","總結","今天","ringkasan","hari ini","สรุป","วันนี้","tóm tắt","hôm nay")
+ private val help=listOf("help","도움","도와","ヘルプ","へるぷ","助けて","たすけて","帮助","幫助","bantuan","tolong","ช่วย","trợ giúp","giúp")
 
  fun parse(text:String?):Command? {
   val t=text?.trim()?.lowercase()?.takeIf { it.isNotEmpty() }?:return null

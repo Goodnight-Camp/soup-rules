@@ -9,6 +9,8 @@ import ai.pleos.playground.stt.listener.ResultListener
 import ai.pleos.playground.tts.TextToSpeech
 import ai.pleos.playground.tts.listener.EventListener
 import com.goodnight.souprules.core.*
+import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -45,6 +47,8 @@ interface Voice {
  fun say(key:String,severity:Severity,render:(Lang)->String)
  /** 한 번 듣고 최종 결과를 돌려줍니다. 실패하면 null. */
  fun listen(onResult:(String?)->Unit)
+ /** 차량 음성 엔진이 로케일마다 말하기·듣기를 지원하는지 직접 확인합니다(디버그). 끝나면 운전자 언어로 되돌립니다. */
+ suspend fun probe():List<VoiceProbeResult> =emptyList()
  fun close()
 }
 
@@ -65,29 +69,32 @@ class PleosVoice(context:Context):Voice {
  private val queue=AnnouncementQueue()
  private val renderers=HashMap<String,(Lang)->String>()
  private var sttResult:((String?)->Unit)?=null
+ /** 확인(probe) 중에는 TTS/STT 콜백을 큐 대신 여기로 보냅니다. 값: "OK" 또는 오류 이름. */
+ @Volatile private var ttsProbe:CompletableDeferred<String>?=null
+ @Volatile private var sttProbe:CompletableDeferred<String>?=null
  private var sttRetried=false
 
  private val ttsEvents=object:EventListener {
-  override fun onDone() { main.post { next() } }
+  override fun onDone() { ttsProbe?.let { it.complete("OK"); return }; main.post { next() } }
   override fun onStop()=Unit
   override fun onStart()=Unit
   override fun onReady()=Unit
   override fun onUpdatedRms(rms:Double)=Unit
-  override fun onError(error:TtsError) { main.post {
+  override fun onError(error:TtsError) { ttsProbe?.let { it.complete(error.name); return }; main.post {
    Log.w(TAG,"TTS 오류 $error (${ttsNeg.current?.locale})")
    if(error==TtsError.UNAVAILABLE_LANGUAGE) { ttsNeg.fail(); applyTtsLocale(); queue.speaking?.let { respeak(it) } } else next()
   } }
  }
 
  private val sttEvents=object:ResultListener {
-  override fun onUpdated(text:String,isFinal:Boolean) { if(isFinal) main.post { finishListen(text) } }
-  override fun onError(error:SttError) { main.post {
+  override fun onUpdated(text:String,isFinal:Boolean) { sttProbe?.let { it.complete("OK"); return }; if(isFinal) main.post { finishListen(text) } }
+  override fun onError(error:SttError) { sttProbe?.let { it.complete(error.name); return }; main.post {
    Log.w(TAG,"STT 오류 $error (${sttNeg.current?.locale})")
    if(error==SttError.UNAVAILABLE_LANGUAGE && !sttRetried) { sttRetried=true; sttNeg.fail(); if(applySttLocale()) { runCatching { stt.request() }.onFailure { finishListen(null) } } else finishListen(null) }
    else finishListen(null)
   } }
   override fun onUpdatedEpdData(start:Long,end:Long)=Unit
-  override fun onStartedRecognition()=Unit
+  override fun onStartedRecognition() { sttProbe?.complete("OK") }
   override fun onEndedRecognition()=Unit
   override fun onReady()=Unit
   override fun onUpdatedRms(rms:Double)=Unit
@@ -197,6 +204,50 @@ class PleosVoice(context:Context):Voice {
   sttResult=null
   _state.value=_state.value.copy(listeningNow=false)
   cb(text?.trim()?.takeIf { it.isNotEmpty() })
+ }
+
+ override suspend fun probe():List<VoiceProbeResult> {
+  val s=_state.value
+  runCatching { tts.stop(); stt.stop() }; queue.clear(); renderers.clear()
+  val results=VoiceProbe.targets().map { (tag,lang)->
+   val locale=java.util.Locale.forLanguageTag(tag)
+   val (tOut,tDetail)=if(!s.ttsReady) ProbeOutcome.NOT_READY to null else probeTts(locale,Strings.render(lang,Msg.GREETING))
+   val (sOut,sDetail)=if(!s.sttReady) ProbeOutcome.NOT_READY to null else probeStt(locale)
+   VoiceProbeResult(tag,lang,tOut,sOut,tDetail,sDetail).also { Log.i(TAG,"probe $tag TTS=$tOut${tDetail?.let { d->"($d)" }?:""} STT=$sOut${sDetail?.let { d->"($d)" }?:""}") }
+  }
+  // 운전자 언어로 되돌립니다(협상을 처음부터 다시).
+  val wanted=_state.value.wanted
+  ttsNeg=VoiceNegotiator(wanted); sttNeg=VoiceNegotiator(wanted)
+  if(_state.value.ttsReady) applyTtsLocale()
+  if(_state.value.sttReady) applySttLocale()
+  return results
+ }
+
+ /** 인사말을 실제로 말해 봅니다. 말하기가 끝나야(onDone) 지원으로 봅니다. */
+ private suspend fun probeTts(locale:java.util.Locale,text:String):Pair<ProbeOutcome,String?> {
+  if(runCatching { tts.setLocale(locale) }.onFailure { Log.w(TAG,"probe TTS 로케일 거부 $locale: ${it.message}") }.isFailure) return ProbeOutcome.LOCALE_REJECTED to null
+  val d=CompletableDeferred<String>(); ttsProbe=d
+  if(runCatching { tts.speak(text,true) }.isFailure) { ttsProbe=null; return ProbeOutcome.ERROR to "speak 예외" }
+  val r=withTimeoutOrNull(12_000) { d.await() }
+  ttsProbe=null; runCatching { tts.stop() }
+  return outcome(r)
+ }
+
+ /** 인식을 시작해 봅니다. 언어를 지원하지 않으면 엔진이 바로 UNAVAILABLE_LANGUAGE를 돌려줍니다. 시작되면 곧바로 멈춥니다. */
+ private suspend fun probeStt(locale:java.util.Locale):Pair<ProbeOutcome,String?> {
+  if(runCatching { stt.setLocale(locale) }.onFailure { Log.w(TAG,"probe STT 로케일 거부 $locale: ${it.message}") }.isFailure) return ProbeOutcome.LOCALE_REJECTED to null
+  val d=CompletableDeferred<String>(); sttProbe=d
+  if(runCatching { stt.request() }.isFailure) { sttProbe=null; return ProbeOutcome.ERROR to "request 예외" }
+  val r=withTimeoutOrNull(4_000) { d.await() }
+  sttProbe=null; runCatching { stt.stop() }
+  return outcome(r)
+ }
+
+ private fun outcome(r:String?):Pair<ProbeOutcome,String?> =when(r) {
+  null->ProbeOutcome.TIMEOUT to null
+  "OK"->ProbeOutcome.OK to null
+  "UNAVAILABLE_LANGUAGE"->ProbeOutcome.UNAVAILABLE_LANGUAGE to null
+  else->ProbeOutcome.ERROR to r
  }
 
  override fun close() {

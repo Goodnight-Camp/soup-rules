@@ -80,6 +80,10 @@ class CoachService:Service() {
    when(i.getStringExtra("event")) {
     "demo"->coach.startDemo(com.goodnight.souprules.data.DemoDrive(this))
     "summary"->coach.speakSummary()
+    "voice_probe"->coach.probeVoices { r->
+     // adb shell run-as com.goodnight.souprules cat files/voice-probe.txt 로 읽습니다.
+     runCatching { java.io.File(filesDir,"voice-probe.txt").writeText(VoiceProbe.table(r)+"\n"+VoiceProbe.summary(r)+"\n") }
+    }
     "lang"->Lang.fromTag(i.getStringExtra("value"))?.let { coach.setLanguage(it) }
     "stt"->CommandParser.parse(i.getStringExtra("value"))?.let { Log.i("SoupService","디버그 STT → $it") }
     else->Unit

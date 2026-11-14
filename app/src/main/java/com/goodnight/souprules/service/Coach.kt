@@ -135,6 +135,18 @@ class Coach(
   }
  }
 
+ // ── 음성 지원 확인(디버그) ──
+ /** 9개 언어의 차량 음성 지원을 확인하고 로그·파일·화면에 남깁니다. */
+ fun probeVoices(onDone:(List<VoiceProbeResult>)->Unit={}) {
+  scope.launch {
+   _ui.value=_ui.value.copy(error="음성 지원 확인 중…")
+   val r=voice.probe()
+   Log.i("SoupVoiceProbe","\n"+VoiceProbe.table(r))
+   _ui.value=_ui.value.copy(error=VoiceProbe.summary(r))
+   onDone(r)
+  }
+ }
+
  // ── 데모 ──
  fun startDemo(demo:DemoDrive) {
   if(demoJob?.isActive==true) return

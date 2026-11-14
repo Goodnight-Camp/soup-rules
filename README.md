@@ -70,6 +70,14 @@ Pleos `SpeechToText`/`TextToSpeech` 3.3.1(ON_DEVICE)을 사용합니다. 사용�
 
 **엔진이 그 언어를 지원하지 않을 때**(`VoiceNegotiator`)는 운전자 언어 로케일(예: 번체는 zh-TW, zh-HK)을 차례로 시도한 뒤 영어(en-US, en-GB)로 내려갑니다. `setLocale` 예외나 `UNAVAILABLE_LANGUAGE` 오류가 나면 다음 후보로 넘어가고, 같은 안내를 새 언어로 다시 만들어 말합니다. 영어로 말하게 되면 화면에 운전자 언어로 "이 차량에서는 ○○ 음성을 지원하지 않아 English로 안내합니다"를 띄웁니다. 영어도 안 되면 음성을 끄고 화면으로만 안내합니다. 한국어로는 내려가지 않습니다.
 
+**차량이 실제로 지원하는 언어 확인** (디버그 빌드): Gleo 비서가 다국어를 지원해도, 앱이 쓰는 STT/TTS SDK가 그 언어를 지원한다는 보장은 없습니다. 국내 사양 렌터카에 일본어 음성 모델이 없을 수도 있습니다. 아래 명령으로 9개 언어의 로케일을 하나씩 시도해 결과를 남깁니다. 말하기는 인사말을 실제로 끝까지 말하면 OK이고, 듣기는 인식이 시작되면 OK입니다. `UNAVAILABLE_LANGUAGE`, `LOCALE_REJECTED`면 미지원입니다.
+
+```powershell
+adb shell am broadcast -n com.goodnight.souprules/.debug.DebugSignalReceiver -a com.goodnight.souprules.DEBUG --es event voice_probe
+adb logcat -s SoupVoiceProbe SoupVoice
+adb shell run-as com.goodnight.souprules cat files/voice-probe.txt
+```
+
 **말하는 순서**(`AnnouncementQueue`): 긴급 안내는 팁을 끊고 먼저 말합니다. 같은 안내는 겹쳐 쌓지 않고, 대기열이 넘치면 지난 팁부터 버립니다.
 
 **음성 명령**은 "말하기" 버튼을 눌러 씁니다. 어느 언어로 인식되든 같은 명령이 되도록 모든 언어의 낱말을 함께 봅니다(`CommandParser`).
@@ -148,10 +156,10 @@ adb shell am broadcast -n com.goodnight.souprules/.debug.DebugSignalReceiver -a 
   - 기준값은 실차 주행 기록으로 맞춰야 합니다.
 - **회전교차로 통행방법 위반 금액(3만원)은 확인이 필요합니다.**
 - **공휴일**은 운영 시간 계산에 넣지 않았습니다. 평일 시간표가 공휴일에도 적용된 것으로 봅니다.
-- **실제 음성 지원 언어는 확인하지 못했습니다.** Pleos 온디바이스 STT/TTS가 한국어 외에 어떤 로케일을 지원하는지 아직 모릅니다. 폴백 경로는 구현했지만 실차 확인이 필요합니다. autolog 에뮬레이터에서는 ko-KR만 확인됐습니다.
+- **실제 음성 지원 언어는 확인하지 못했습니다.** 위의 `voice_probe`로 실차나 Pleos 에뮬레이터에서 확인해야 합니다. Pleos 온디바이스 STT/TTS가 한국어 외에 어떤 로케일을 지원하는지 아직 모릅니다. 폴백 경로는 구현했지만 실차 확인이 필요합니다. autolog 에뮬레이터에서는 ko-KR만 확인됐습니다.
 - **Pleos TurnSignal 실신호와 CAR_SPEED 권한 조합도 실차 확인이 필요합니다.**
 - 이 커밋에서 확인한 범위는 다음과 같습니다. 자동차용 에뮬레이터에서 실행해 보지는 않았고, 분할 화면도 크기별 배치 규칙만 단위 테스트로 확인했습니다.
-  - JVM 단위 테스트 78개(core 73개, 화면 배치 5개)
+  - JVM 단위 테스트 85개(core 80개, 화면 배치 5개)
   - `assembleDebug`
   - `lintDebug`(오류 0)
 
