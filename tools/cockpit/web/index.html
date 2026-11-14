@@ -1,0 +1,559 @@
+<!doctype html>
+<!-- 국Rule 가상 내비. 한 파일, 빌드 없음, 외부 요청 없음.
+     대시보드가 아니라 주행 중인 내비게이션 화면입니다: 지도가 주인공, 차량 중심 헤딩업,
+     프레임(1초 간격)을 rAF로 보간해 부드럽게 움직입니다. 판정은 전부 앱이 하고 웹은 받은 것만 그립니다. -->
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<title>국Rule 가상 내비</title>
+<style>
+  :root {
+    --bg:#11151a; --road:#2a3340; --panel:rgba(18,23,29,.92); --line:#2c343c;
+    --text:#e8edf2; --dim:#8a97a4; --accent:#4da3ff;
+    --ok:#39c26d; --warn:#f2b43c; --urgent:#f0564a; --info:#4da3ff;
+  }
+  * { box-sizing:border-box; margin:0; }
+  html,body { height:100%; overflow:hidden; }
+  body { background:var(--bg); color:var(--text);
+    font:16px/1.45 "Pretendard","Apple SD Gothic Neo","Malgun Gothic",sans-serif; }
+  #map { position:absolute; inset:0; width:100%; height:100%; }
+  .card { background:var(--panel); border:1px solid var(--line); border-radius:14px; }
+
+  /* 구석 배지 */
+  #badges { position:absolute; top:14px; left:14px; display:flex; gap:8px; z-index:5; }
+  .badge { padding:7px 14px; border-radius:999px; font-size:14px; border:1px solid var(--line);
+    background:var(--panel); color:var(--dim); white-space:nowrap; }
+  .badge.on { border-color:var(--ok); color:var(--ok); }
+  .badge.off { border-color:var(--urgent); color:var(--urgent); }
+
+  /* 다음 회전 안내 (위 가운데) */
+  #nextTurn { position:absolute; top:14px; left:50%; transform:translateX(-50%);
+    display:none; align-items:center; gap:18px; padding:16px 28px; z-index:5; }
+  #ntArrow { font-size:58px; line-height:1; color:var(--accent); font-weight:800; }
+  #ntDist { font-size:42px; font-weight:800; font-variant-numeric:tabular-nums; }
+  #ntLabel { font-size:19px; color:var(--dim); }
+
+  /* 안내 배너 (앱 문장 그대로) */
+  #banner { position:absolute; top:142px; left:50%; transform:translateX(-50%);
+    max-width:min(960px,88vw); display:none; padding:18px 28px; z-index:6;
+    border-left:8px solid var(--line); }
+  #banner.INFO { border-left-color:var(--info); }
+  #banner.WARN { border-left-color:var(--warn); }
+  #banner.URGENT { border-left-color:var(--urgent); animation:pulse 1s infinite; }
+  @keyframes pulse { 50% { box-shadow:0 0 0 4px rgba(240,86,74,.25); } }
+  #bannerText { font-size:27px; font-weight:700; }
+  #bannerLang { font-size:15px; color:var(--dim); margin-top:5px; }
+
+  /* 기록 (오른쪽 위) */
+  #records { position:absolute; top:14px; right:14px; display:none; text-align:right;
+    padding:12px 20px; z-index:5; }
+  #recCount { font-size:32px; font-weight:800; color:var(--urgent); }
+  #records small { color:var(--dim); display:block; font-size:15px; }
+
+  /* 차속·기어·깜빡이 (왼쪽 아래) */
+  #speedPanel { position:absolute; left:18px; bottom:30px; display:flex; align-items:center;
+    gap:22px; padding:18px 28px; z-index:5; }
+  #spSpeed { font-size:92px; font-weight:800; line-height:1; font-variant-numeric:tabular-nums; min-width:160px; text-align:center; }
+  #spSpeed small { display:block; font-size:17px; color:var(--dim); font-weight:400; margin-top:4px; }
+  #spGear { display:flex; flex-direction:column; gap:3px; font-size:21px; font-weight:800; color:#49525c; text-align:center; }
+  #spGear span.cur { color:var(--text); background:#2c343c; border-radius:6px; }
+  #spGear span { padding:0 10px; }
+  .blinker { font-size:40px; color:#3a434d; }
+  .blinker.on { color:var(--ok); animation:blink .8s infinite; }
+  @keyframes blink { 50% { opacity:.15; } }
+  #limitSign { display:none; width:88px; height:88px; border-radius:50%; background:#fff;
+    border:10px solid #e03131; color:#111; font-size:38px; font-weight:800;
+    align-items:center; justify-content:center; }
+  #stopChip { display:none; position:absolute; left:18px; bottom:196px; padding:9px 18px;
+    font-size:17px; color:var(--warn); z-index:5; }
+
+  /* 주행 중 구석 조작 (오른쪽 아래) */
+  #corner { position:absolute; right:14px; bottom:30px; display:flex; gap:8px; z-index:5; }
+  select,button { background:#232b33; color:var(--text); border:1px solid var(--line);
+    border-radius:10px; padding:11px 16px; font:inherit; cursor:pointer; }
+  select:disabled,button:disabled { opacity:.4; cursor:not-allowed; }
+  button.primary { background:var(--accent); border-color:var(--accent); color:#06121f; font-weight:700; }
+  button.danger { background:#3a2326; border-color:#5c3034; color:#ff9f97; }
+  #corner button,#corner select { font-size:16px; padding:10px 16px; }
+
+  /* 주행 전 패널 */
+  #idlePanel { position:absolute; left:50%; top:50%; transform:translate(-50%,-50%);
+    width:min(600px,92vw); padding:32px; z-index:7; display:none; }
+  #idlePanel h1 { font-size:26px; margin-bottom:6px; }
+  #idlePanel .sub { color:var(--dim); font-size:16px; margin-bottom:20px; }
+  #idlePanel .row { display:flex; gap:10px; margin-bottom:12px; }
+  #idlePanel select { flex:1; min-width:0; width:100%; font-size:17px; }
+  #scDesc { color:var(--dim); font-size:14px; margin:-4px 0 14px; min-height:20px; }
+  #btnStart { width:100%; padding:15px; font-size:19px; }
+  #startReason { color:var(--urgent); font-size:15px; margin-top:10px; text-align:center; min-height:20px; }
+
+  /* 주행 후 요약 카드 */
+  #doneCard { position:absolute; left:50%; top:50%; transform:translate(-50%,-50%);
+    width:min(660px,92vw); padding:32px 36px; z-index:7; display:none; text-align:center; }
+  #dcPass { font-size:44px; font-weight:800; margin-bottom:8px; }
+  #dcPass.ok { color:var(--ok); } #dcPass.fail { color:var(--urgent); }
+  #dcHead { font-size:17px; color:var(--dim); margin-bottom:16px; }
+  #dcItems { text-align:left; font-size:15.5px; max-height:200px; overflow:auto; margin-bottom:16px; }
+  #dcItems div { padding:6px 0; border-bottom:1px dashed var(--line); }
+  #dcTable { margin:0 auto 18px; border-collapse:collapse; font-size:17px; }
+  #dcTable td,#dcTable th { border:1px solid var(--line); padding:8px 20px; }
+  #btnReady { width:100%; padding:13px; font-size:17px; }
+
+  #prepChip { position:absolute; left:50%; top:50%; transform:translate(-50%,-50%);
+    display:none; padding:14px 26px; z-index:7; font-size:18px; color:var(--dim); }
+  #progress { position:absolute; left:0; right:0; bottom:0; height:6px; background:#1b222a; z-index:5; }
+  #progFill { height:100%; width:0%; background:var(--accent); }
+  #toast { position:absolute; left:50%; bottom:52px; transform:translateX(-50%);
+    background:#3a2326; border:1px solid #5c3034; color:#ff9f97;
+    padding:10px 20px; border-radius:10px; display:none; z-index:20; font-size:16px; }
+</style>
+</head>
+<body>
+<svg id="map"><g id="world"></g></svg>
+<!-- 차량 마커: 지도가 움직이고 차는 화면 아래 1/3에 고정 -->
+<svg id="car" width="54" height="73" viewBox="-17 -23 34 46"
+     style="position:absolute;z-index:4;overflow:visible;display:none">
+  <path d="M0,-19 L12,15 Q0,8 -12,15 Z" fill="#4da3ff" stroke="#dff0ff" stroke-width="2.5" stroke-linejoin="round"/>
+</svg>
+
+<div id="badges">
+  <span id="bApp" class="badge off">앱 연결 안 됨</span>
+  <span id="bPhase" class="badge">IDLE</span>
+  <span class="badge">시뮬레이션 신호 · 앱 실시간 판단</span>
+</div>
+
+<div id="nextTurn" class="card">
+  <span id="ntArrow">↑</span>
+  <span><span id="ntDist">–</span><div id="ntLabel">직진</div></span>
+</div>
+
+<div id="banner" class="card">
+  <div id="bannerText"></div>
+  <div id="bannerLang"></div>
+</div>
+
+<div id="records" class="card">
+  <span id="recCount">0건</span>
+  <small id="recTotal">~0원</small>
+</div>
+
+<div id="speedPanel" class="card">
+  <span class="blinker" id="blinkL">◀</span>
+  <span id="spSpeed">–<small>km/h</small></span>
+  <span class="blinker" id="blinkR">▶</span>
+  <span id="spGear"><span data-g="P">P</span><span data-g="R">R</span><span data-g="N">N</span><span data-g="D">D</span></span>
+  <span id="limitSign">–</span>
+</div>
+<div id="stopChip" class="card">정차 중 (시나리오 진행 중)</div>
+
+<div id="corner">
+  <select id="selSpeed" title="배속">
+    <option value="1">1×</option><option value="2.5" selected>2.5×</option>
+    <option value="5">5×</option><option value="10">10×</option>
+  </select>
+  <button id="btnPause">일시정지</button>
+  <button id="btnAbort" class="danger">중단</button>
+</div>
+
+<div id="idlePanel" class="card">
+  <h1>국Rule 가상 내비</h1>
+  <div class="sub">시나리오를 고르고 주행을 시작하세요. 판단과 안내는 전부 앱이 합니다.</div>
+  <div class="row"><select id="selScenario"></select></div>
+  <div id="scDesc"></div>
+  <div class="row"><select id="selMode">
+    <option value="scenario">시나리오 모드 (파일 재생)</option>
+    <option value="sdk">SDK 주행 (에뮬레이터 차량 조작)</option>
+    <option value="free">자유 주행 (2차)</option>
+  </select></div>
+  <button id="btnStart" class="primary">주행 시작</button>
+  <div id="startReason"></div>
+</div>
+
+<div id="doneCard" class="card">
+  <div id="dcPass">–</div>
+  <div id="dcHead"></div>
+  <table id="dcTable">
+    <tr><th></th><th>기대</th><th>실제</th></tr>
+    <tr><td>건수</td><td id="dcExpC">–</td><td id="dcActC">–</td></tr>
+    <tr><td>합계 과태료</td><td id="dcExpF">–</td><td id="dcActF">–</td></tr>
+  </table>
+  <div id="dcItems"></div>
+  <button id="btnReady" class="primary">다시 준비</button>
+</div>
+
+<div id="prepChip" class="card">주행 준비 중…</div>
+<div id="progress"><div id="progFill"></div></div>
+<div id="toast"></div>
+
+<script>
+"use strict";
+const $ = id => document.getElementById(id);
+const won = n => (n ?? 0).toLocaleString("ko-KR") + "원";
+const SVGNS = "http://www.w3.org/2000/svg";
+const DRIVE_SCALE = 2.1;        // 주행 중 px/m
+
+let session = null, lastState = null, result = null;
+let sc = null;                   // 선택된 시나리오 메타(route 포함)
+
+// ── 좌표: 위경도 → 미터 평면(월드). 북쪽 위, y는 화면 방향으로 뒤집음 ──
+let origin = null, mLat = 111195, mLng = 111195;
+const toWorld = ([la, ln]) => [(ln - origin[1]) * mLng, -(la - origin[0]) * mLat];
+
+// ── 월드(지도) 구성: 도로·경로·구역·핀. 시나리오가 바뀔 때만 다시 만듭니다 ──
+const world = $("world");
+let route = [], cum = [], corners = [], uprights = [], pinsG = null, remainEl = null;
+function el(name, attrs, parent) {
+  const e = document.createElementNS(SVGNS, name);
+  for (const k in attrs) e.setAttribute(k, attrs[k]);
+  (parent || world).appendChild(e);
+  return e;
+}
+function upright(e, x, y) { uprights.push({ e, x, y }); }
+
+function buildWorld() {
+  world.innerHTML = ""; uprights = []; route = []; cum = []; corners = [];
+  if (!sc) return;
+  origin = sc.route[0];
+  mLng = 111195 * Math.cos(origin[0] * Math.PI / 180);
+  route = sc.route.map(toWorld);
+  cum = [0];
+  for (let i = 1; i < route.length; i++)
+    cum.push(cum[i - 1] + Math.hypot(route[i][0] - route[i - 1][0], route[i][1] - route[i - 1][1]));
+
+  const pts = route.map(p => p.join(",")).join(" ");
+  // 도로(경로를 넓게)와 중앙선
+  el("polyline", { points: pts, fill: "none", stroke: "var(--road)", "stroke-width": 18, "stroke-linejoin": "round", "stroke-linecap": "round" });
+  el("polyline", { points: pts, fill: "none", stroke: "#4a5664", "stroke-width": 1.2, "stroke-dasharray": "5 6" });
+
+  // 구역: 내비식 표시
+  for (const z of session.zones.zones) {
+    if (z.kind === "SCHOOL_ZONE" && z.circle) {
+      const [x, y] = toWorld([z.circle.lat, z.circle.lng]), r = z.circle.radiusM;
+      el("circle", { cx: x, cy: y, r, fill: "rgba(242,180,60,.10)", stroke: "var(--warn)", "stroke-width": 1.2, "stroke-dasharray": "6 4" });
+      const g = el("g", {});
+      el("circle", { cx: x + r * .75, cy: y - r * .75, r: 19, fill: "#fff", stroke: "#e03131", "stroke-width": 5.5 }, g);
+      el("text", { x: x + r * .75, y: y - r * .75 + 6.5, "text-anchor": "middle", "font-size": 18, "font-weight": 800, fill: "#111" }, g).textContent = z.limitKmh ?? 30;
+      label(x, y + r + 18, z.name, "var(--warn)");
+      upright(g, x + r * .75, y - r * .75);
+    } else if (z.kind === "BUS_LANE" && z.corridor) {
+      const p = z.corridor.points.map(toWorld);
+      el("polyline", { points: p.map(q => q.join(",")).join(" "), fill: "none", stroke: "rgba(77,163,255,.33)", "stroke-width": z.corridor.halfWidthM * 2, "stroke-linecap": "butt" });
+      el("polyline", { points: p.map(q => q.join(",")).join(" "), fill: "none", stroke: "var(--accent)", "stroke-width": 1, "stroke-dasharray": "10 6" });
+      const mx = (p[0][0] + p[1][0]) / 2, my = (p[0][1] + p[1][1]) / 2;
+      const g = el("g", {});
+      el("rect", { x: mx + 12, y: my - 13, width: 66, height: 26, rx: 6, fill: "var(--accent)" }, g);
+      el("text", { x: mx + 45, y: my + 5.5, "text-anchor": "middle", "font-size": 14.5, "font-weight": 700, fill: "#06121f" }, g).textContent = "버스전용";
+      upright(g, mx + 12, my);
+    } else if (z.kind === "RIGHT_TURN" && z.circle) {
+      const [x, y] = toWorld([z.circle.lat, z.circle.lng]);
+      const g = el("g", {});
+      el("circle", { cx: x, cy: y, r: 19, fill: "#fff", stroke: "#e03131", "stroke-width": 5 }, g);
+      el("text", { x, y: y + 6, "text-anchor": "middle", "font-size": 16, "font-weight": 800, fill: "#111" }, g).textContent = "⇥";
+      label(x, y + 34, "우회전 일시정지", "var(--ok)");
+      upright(g, x, y);
+    } else if (z.kind === "PARKING_ENFORCEMENT" && z.circle) {
+      const [x, y] = toWorld([z.circle.lat, z.circle.lng]), r = z.circle.radiusM;
+      el("circle", { cx: x, cy: y, r, fill: "rgba(240,86,74,.10)", stroke: "var(--urgent)", "stroke-width": 1.2, "stroke-dasharray": "6 4" });
+      const g = el("g", {});
+      el("rect", { x: x - 17, y: y - 14, width: 34, height: 21, rx: 4, fill: "#2c343c", stroke: "var(--urgent)", "stroke-width": 2 }, g);
+      el("circle", { cx: x, cy: y - 3.5, r: 6, fill: "var(--urgent)" }, g);
+      el("rect", { x: x - 1.7, y: y + 7, width: 3.4, height: 13, fill: "#2c343c" }, g);
+      label(x, y + r + 18, z.name, "var(--urgent)");
+      upright(g, x, y);
+    }
+  }
+
+  // 경로선: 지나온 구간은 흐리게(아래), 남은 구간은 진하게(위에서 갱신)
+  el("polyline", { points: pts, fill: "none", stroke: "rgba(77,163,255,.25)", "stroke-width": 6, "stroke-linecap": "round" });
+  remainEl = el("polyline", { points: pts, fill: "none", stroke: "var(--accent)", "stroke-width": 6, "stroke-linecap": "round" });
+  // 출발·도착 깃발
+  flag(route[0], "출발", "var(--ok)");
+  flag(route[route.length - 1], "도착", "var(--accent)");
+  pinsG = el("g", {});
+
+  computeCorners();
+  cam.snap = true;
+}
+function label(x, y, text, fill) {
+  const t = el("text", { x, y, "text-anchor": "middle", "font-size": 14.5, "font-weight": 700, fill, "paint-order": "stroke", stroke: "#11151a", "stroke-width": 4 });
+  t.textContent = text;
+  upright(t, x, y);
+}
+function flag([x, y], text, color) {
+  const g = el("g", {});
+  el("circle", { cx: x, cy: y, r: 7, fill: color, stroke: "#11151a", "stroke-width": 2.5 }, g);
+  const t = el("text", { x: x + 12, y: y + 5, "font-size": 14.5, "font-weight": 700, fill: color, "paint-order": "stroke", stroke: "#11151a", "stroke-width": 4 }, g);
+  t.textContent = text;
+  upright(g, x, y);
+}
+
+// ── 다음 회전: 경로 방향 변화로 계산하는 표시용 정보(앱에는 보내지 않음) ──
+function computeCorners() {
+  corners = [];
+  const bearAt = i => {
+    let j = i;
+    while (j + 1 < route.length && cum[j + 1] - cum[i] < 8) j++;
+    if (j + 1 >= route.length) return null;
+    return Math.atan2(route[j + 1][0] - route[i][0], -(route[j + 1][1] - route[i][1])) * 180 / Math.PI;
+  };
+  let prev = bearAt(0);
+  for (let i = 1; i < route.length - 1; i++) {
+    const b = bearAt(i);
+    if (b == null || prev == null) break;
+    let d = ((b - prev + 540) % 360) - 180;
+    if (Math.abs(d) > 30) {
+      const last = corners[corners.length - 1];
+      if (last && cum[i] - last.s < 30) { last.ang += d; }
+      else corners.push({ s: cum[i], ang: d });
+      prev = b;
+    } else if (Math.abs(d) > 4) prev = b;
+  }
+}
+function nextTurnInfo(s) {
+  for (const c of corners) {
+    if (c.s - s > 5) {
+      const right = c.ang > 0;
+      return { arrow: right ? "⮕" : "⬅", dist: c.s - s, label: right ? "우회전" : "좌회전" };
+    }
+  }
+  const remain = cum[cum.length - 1] - s;
+  return { arrow: "⚑", dist: Math.max(0, remain), label: "목적지" };
+}
+
+// ── 카메라: 주행 중엔 차량 중심·헤딩업(차는 아래 1/3), 그 외엔 경로 전체 ──
+const cam = { x: 0, y: 0, rot: 0, scale: 1, ax: .5, ay: .5, snap: true };
+const carPos = { x: 0, y: 0, tx: 0, ty: 0, heading: 0, lastIdx: 0, s: 0 };
+let lastRaf = 0;
+
+function fitOverview() {
+  let minX = 1e9, maxX = -1e9, minY = 1e9, maxY = -1e9;
+  const grow = (x, y, r) => { minX = Math.min(minX, x - r); maxX = Math.max(maxX, x + r); minY = Math.min(minY, y - r); maxY = Math.max(maxY, y + r); };
+  for (const [x, y] of route) grow(x, y, 20);
+  for (const z of session.zones.zones) if (z.circle) { const [x, y] = toWorld([z.circle.lat, z.circle.lng]); grow(x, y, z.circle.radiusM); }
+  const w = innerWidth, h = innerHeight;
+  return { x: (minX + maxX) / 2, y: (minY + maxY) / 2, rot: 0,
+    scale: Math.min(w / (maxX - minX + 80), h / (maxY - minY + 80)) * .92, ax: .5, ay: .5 };
+}
+
+function raf(now) {
+  requestAnimationFrame(raf);
+  const dt = Math.min(.1, (now - lastRaf) / 1000 || 0); lastRaf = now;
+  if (!sc || !session) return;
+  const driving = session.phase === "RUNNING" || session.phase === "PAUSED" || session.phase === "ENDING";
+
+  // 차량 위치 보간: 목표(마지막 frame)로 지수 완화. 일시정지면 새 frame이 없어 그대로 멈춥니다.
+  const k = 1 - Math.exp(-dt * 3.2);
+  const dx = carPos.tx - carPos.x, dy = carPos.ty - carPos.y;
+  carPos.x += dx * k; carPos.y += dy * k;
+  if (Math.hypot(dx, dy) > 1.5) {
+    const h = Math.atan2(dx, -dy) * 180 / Math.PI;
+    let dd = ((h - carPos.heading + 540) % 360) - 180;
+    carPos.heading += dd * Math.min(1, dt * 4);
+  }
+  projectOnRoute();
+
+  // 카메라 목표
+  const t = driving
+    ? { x: carPos.x, y: carPos.y, rot: carPos.heading, scale: DRIVE_SCALE, ax: .5, ay: 2 / 3 }
+    : fitOverview();
+  const ck = cam.snap ? 1 : 1 - Math.exp(-dt * 3);
+  cam.snap = false;
+  cam.x += (t.x - cam.x) * ck; cam.y += (t.y - cam.y) * ck;
+  let dr = ((t.rot - cam.rot + 540) % 360) - 180;
+  cam.rot += dr * ck;
+  cam.scale += (t.scale - cam.scale) * ck;
+  cam.ax += (t.ax - cam.ax) * ck; cam.ay += (t.ay - cam.ay) * ck;
+
+  const ax = innerWidth * cam.ax, ay = innerHeight * cam.ay;
+  world.setAttribute("transform",
+    `translate(${ax} ${ay}) rotate(${-cam.rot}) scale(${cam.scale}) translate(${-cam.x} ${-cam.y})`);
+  // 표지·글자는 회전시키지 않고, 지도를 축소해도 화면 크기를 유지합니다
+  const f = Math.min(9, DRIVE_SCALE / cam.scale);
+  for (const u of uprights)
+    u.e.setAttribute("transform", `translate(${u.x} ${u.y}) rotate(${cam.rot}) scale(${f}) translate(${-u.x} ${-u.y})`);
+
+  // 차 마커(화면 고정점에 지도만 움직임)
+  const a = -cam.rot * Math.PI / 180;
+  const wx = carPos.x - cam.x, wy = carPos.y - cam.y;
+  const sx = ax + cam.scale * (wx * Math.cos(a) - wy * Math.sin(a));
+  const sy = ay + cam.scale * (wx * Math.sin(a) + wy * Math.cos(a));
+  const car = $("car");
+  car.style.display = driving || session.phase === "DONE" ? "block" : "none";
+  car.style.left = (sx - 27) + "px"; car.style.top = (sy - 36.5) + "px";
+  car.style.transform = `rotate(${carPos.heading - cam.rot}deg)`;
+
+  // 남은 경로(진하게)와 다음 회전
+  if (remainEl && driving) {
+    const rest = [[carPos.x, carPos.y], ...route.slice(carPos.lastIdx + 1)];
+    remainEl.setAttribute("points", rest.map(p => p.join(",")).join(" "));
+    const nt = nextTurnInfo(carPos.s);
+    $("ntArrow").textContent = nt.arrow;
+    $("ntDist").textContent = nt.dist >= 1000 ? (nt.dist / 1000).toFixed(1) + " km" : Math.round(nt.dist / 10) * 10 + " m";
+    $("ntLabel").textContent = nt.label;
+  }
+}
+requestAnimationFrame(raf);
+
+function projectOnRoute() {
+  let best = Infinity, bi = carPos.lastIdx, bs = carPos.s;
+  const from = Math.max(0, carPos.lastIdx - 5), to = Math.min(route.length - 2, carPos.lastIdx + 12);
+  for (let i = from; i <= to; i++) {
+    const [x1, y1] = route[i], [x2, y2] = route[i + 1];
+    const ddx = x2 - x1, ddy = y2 - y1, len2 = ddx * ddx + ddy * ddy;
+    const tt = len2 ? Math.max(0, Math.min(1, ((carPos.x - x1) * ddx + (carPos.y - y1) * ddy) / len2)) : 0;
+    const px = x1 + tt * ddx, py = y1 + tt * ddy;
+    const d = Math.hypot(carPos.x - px, carPos.y - py);
+    if (d < best) { best = d; bi = i; bs = cum[i] + Math.sqrt(len2) * tt; }
+  }
+  carPos.lastIdx = bi; carPos.s = bs;
+}
+
+// ── 웹소켓 ──
+let ws;
+function connect() {
+  ws = new WebSocket(`ws://${location.host}/?role=web`);
+  ws.onmessage = e => { try { onMessage(JSON.parse(e.data)); } catch (err) { console.error(err); } };
+  ws.onclose = () => setTimeout(connect, 1500);
+}
+const sendMsg = m => { if (ws && ws.readyState === 1) ws.send(JSON.stringify(m)); };
+
+let prevCount = 0;
+function onMessage(m) {
+  if (m.type === "session") {
+    const prevId = sc && sc.id, prevPhase = session && session.phase;
+    session = m;
+    sc = m.scenarios.find(x => x.id === m.scenario) || null;
+    if (sc && sc.id !== prevId) { buildWorld(); resetCar(); }
+    if (prevPhase !== m.phase && m.phase === "PREPARING") { if (pinsG) pinsG.innerHTML = ""; prevCount = 0; resetCar(); }
+    renderSession();
+  } else if (m.type === "frame") {
+    if (m.lat != null) { const [x, y] = toWorld([m.lat, m.lng]); carPos.tx = x; carPos.ty = y; }
+    if (session && session.mode === "sdk") {
+      const total = cum.length ? cum[cum.length - 1] : 0;   // SDK 주행은 경로 진행률로
+      $("progFill").style.width = total ? Math.min(100, carPos.s / total * 100) + "%" : "0%";
+    } else {
+      const d = session ? session.duration : 0;
+      $("progFill").style.width = d ? Math.min(100, m.t / d * 100) + "%" : "0%";
+    }
+  } else if (m.type === "state") { lastState = m; renderState(m); }
+  else if (m.type === "result") { result = m; renderResult(); }
+  else if (m.type === "error") toast(`${m.code}: ${m.message}`);
+}
+function resetCar() {
+  if (!sc) return;
+  const [x, y] = toWorld(sc.route[0]);
+  carPos.x = carPos.tx = x; carPos.y = carPos.ty = y;
+  carPos.lastIdx = 0; carPos.s = 0;
+  if (route.length > 1) carPos.heading = Math.atan2(route[1][0] - x, -(route[1][1] - y)) * 180 / Math.PI;
+  cam.snap = true;
+}
+
+// ── 화면 전환: 주행 전 / 주행 중 / 주행 후 ──
+function renderSession() {
+  const s = session;
+  const sel = $("selScenario");
+  if (sel.options.length !== s.scenarios.length)
+    sel.innerHTML = s.scenarios.map(x => `<option value="${x.id}">${x.title} (${x.id})</option>`).join("");
+  sel.value = s.scenario || "";
+  $("scDesc").textContent = sc ? sc.description || "" : "";
+  $("selMode").value = s.mode;
+  $("selSpeed").value = String(s.speedup);
+  $("bApp").textContent = s.appConnected ? "앱 연결됨" : "앱 연결 안 됨";
+  $("bApp").className = "badge " + (s.appConnected ? "on" : "off");
+  $("bPhase").textContent = s.phase + (s.mode === "sdk" ? " · SDK 주행(실차 신호)" : "") + (s.notice ? ` · ${s.notice}` : "");
+  $("selSpeed").disabled = s.mode === "sdk";   // SDK 주행은 실시간이라 배속 없음
+
+  const driving = s.phase === "RUNNING" || s.phase === "PAUSED" || s.phase === "ENDING";
+  $("idlePanel").style.display = s.phase === "IDLE" ? "block" : "none";
+  $("prepChip").style.display = s.phase === "PREPARING" ? "block" : "none";
+  $("doneCard").style.display = s.phase === "DONE" ? "block" : "none";
+  $("corner").style.display = driving ? "flex" : "none";
+  $("nextTurn").style.display = driving ? "flex" : "none";
+  // 주행 전에도 앱이 연결돼 있으면 실차(SDK) 신호를 보여줍니다. 에뮬레이터 조작이 앱까지 오는지 바로 확인용.
+  $("speedPanel").style.display = driving || (s.appConnected && lastState) ? "flex" : "none";
+  $("records").style.display = driving || s.phase === "DONE" ? "block" : "none";
+  if (!driving && s.phase !== "DONE") { $("banner").style.display = "none"; $("stopChip").style.display = "none"; }
+
+  $("btnStart").disabled = !s.appConnected;
+  $("startReason").textContent = s.appConnected ? "" : "앱이 연결되지 않았습니다. 앱(또는 fake-app)을 먼저 켜 주세요.";
+  $("btnPause").textContent = s.phase === "PAUSED" ? "다시 재생" : "일시정지";
+  if (s.notice) toast(s.notice);
+}
+
+// ── 앱 state: 차속·기어·깜빡이·배너·기록. 값은 전부 앱이 보고한 것 ──
+function renderState(st) {
+  const v = st.vehicle || {};
+  $("spSpeed").innerHTML = (v.speed != null ? Math.round(v.speed) : "–") + "<small>km/h</small>";
+  for (const g of $("spGear").children) g.className = g.dataset.g === v.gear ? "cur" : "";
+  $("blinkL").className = "blinker" + (v.turn === "LEFT" ? " on" : "");
+  $("blinkR").className = "blinker" + (v.turn === "RIGHT" ? " on" : "");
+
+  // 스쿨존 안이면 제한속도 표지를 차속 옆에
+  const school = (st.zones || []).map(id => session.zones.zones.find(z => z.id === id))
+    .find(z => z && z.kind === "SCHOOL_ZONE");
+  $("limitSign").style.display = school ? "flex" : "none";
+  if (school) $("limitSign").textContent = school.limitKmh ?? 30;
+
+  const driving = session && (session.phase === "RUNNING" || session.phase === "PAUSED");
+  $("stopChip").style.display =
+    driving && (v.gear === "P" || (v.speed != null && v.speed < 1)) ? "block" : "none";
+
+  const a = st.alert;
+  if (a && driving) {
+    $("banner").style.display = "block";
+    $("banner").className = "card " + a.severity;
+    $("bannerText").textContent = a.text;
+    $("bannerLang").textContent = `${st.lang || ""} · ${a.rule} · ${a.severity}`;
+  } else $("banner").style.display = "none";
+
+  const t = st.today || { count: 0, totalFineKrw: 0 };
+  $("recCount").textContent = (t.count ?? 0) + "건";
+  $("recTotal").textContent = "~" + won(t.totalFineKrw);
+  // 기록이 늘면 현재 차 위치에 핀(발생 지점 근사)
+  if ((t.count ?? 0) > prevCount && pinsG) {
+    prevCount = t.count;
+    const g = document.createElementNS(SVGNS, "g");
+    g.innerHTML = `<path d="M0,0 C-10,-14 -10,-26 0,-26 C10,-26 10,-14 0,0 Z" fill="var(--urgent)" stroke="#fff" stroke-width="2"/>
+      <text y="-14.5" text-anchor="middle" font-size="12" font-weight="800" fill="#fff">₩</text>`;
+    g.setAttribute("data-x", carPos.x); g.setAttribute("data-y", carPos.y);
+    pinsG.appendChild(g);
+    uprights.push({ e: g, x: carPos.x, y: carPos.y });
+  }
+}
+
+function renderResult() {
+  const r = result, t = (lastState && lastState.today) || { items: [] };
+  $("dcPass").textContent = r.pass === null ? "주행 종료" : r.pass ? "통과" : "실패";
+  $("dcPass").className = r.pass === null ? "" : r.pass ? "ok" : "fail";
+  $("dcHead").textContent = (sc ? sc.title + " · " : "") + (r.summaryReceived ? "앱 요약 수신" : "요약 미수신(20초 초과)");
+  $("dcExpC").textContent = r.expect ? r.expect.count : "–";
+  $("dcActC").textContent = r.actual.count;
+  $("dcExpF").textContent = r.expect ? won(r.expect.totalFineKrw) : "–";
+  $("dcActF").textContent = won(r.actual.totalFineKrw);
+  $("dcItems").innerHTML = (t.items || []).map(m =>
+    `<div>${(m.at || "").slice(11, 19)}Z · ${esc(m.rule)}${m.zoneName ? " · " + esc(m.zoneName) : ""} · ~${won(m.fineKrw)}</div>`).join("")
+    || `<div style="color:var(--dim)">기록 없음</div>`;
+}
+const esc = s => String(s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+
+let toastTimer = null;
+function toast(text) {
+  const e = $("toast");
+  e.textContent = text; e.style.display = "block";
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => { e.style.display = "none"; }, 3500);
+}
+
+// ── 조작 ──
+$("selScenario").onchange = e => sendMsg({ type: "select", scenario: e.target.value });
+$("selMode").onchange = e => sendMsg({ type: "mode", value: e.target.value });
+$("selSpeed").onchange = e => sendMsg({ type: "speedup", value: Number(e.target.value) });
+$("btnStart").onclick = () => sendMsg({ type: "start" });
+$("btnPause").onclick = () => sendMsg({ type: session.phase === "PAUSED" ? "resume" : "pause" });
+$("btnAbort").onclick = () => sendMsg({ type: "abort" });
+$("btnReady").onclick = () => sendMsg({ type: "ready" });
+
+connect();
+</script>
+</body>
+</html>

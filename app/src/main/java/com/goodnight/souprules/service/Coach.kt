@@ -57,9 +57,12 @@ class Coach(
 
  val lang get()=_ui.value.lang
 
- /** 실제 차량 신호. 데모 재생 중에는 섞지 않습니다. */
+ /** 실제 차량 신호. 데모 재생 중에는 섞지 않습니다. SDK 주행 세션이면 sim 엔진으로 넘깁니다. */
  fun accept(signal:Signal,at:Instant=Instant.now()) {
-  if(_ui.value.demo) return
+  if(_ui.value.demo) {
+   if(simFeedsReal) feedSim(signal,at.plus(simOffset))
+   return
+  }
   if(signal is Signal.Speed||signal is Signal.Shift) _ui.value=_ui.value.copy(carConnected=true)
   apply(engine.accept(signal,at),engine,demo=false)
  }
@@ -166,7 +169,44 @@ class Coach(
  fun stopDemo() { demoJob?.cancel() }
 
  private fun stopDemoState() {
+  if(simEngine!=null) return // 취소된 demoJob의 정리가 진행 중인 시뮬레이션 세션을 덮어쓰지 않게
   demoMisses=emptyList()
   _ui.value=_ui.value.copy(demo=false,current=null,recent=emptyList(),vehicle=engine.state,activeZones=engine.activeZones,today=DaySummary.today(store.all(),Instant.now()))
+ }
+
+ // ── 시뮬레이션 (디버그 링크) ──
+ private var simEngine:CoachEngine?=null
+ /** SDK 주행 모드: 실제 차량 신호(에뮬레이터 조작)를 sim 엔진으로 넘깁니다. */
+ private var simFeedsReal=false
+ /** 시나리오 시각과 실제 시각의 차. 운영 시간(버스전용차로 등) 판단을 시나리오 기준으로 맞춥니다. */
+ private var simOffset:java.time.Duration=java.time.Duration.ZERO
+
+ /**
+  * 외부(디버그 링크)에서 넣는 시뮬레이션 주행. 실제 기록·실제 차량 신호와 섞지 않습니다. 다시 부르면 초기화(reset)입니다.
+  * [feedReal]이면 실제 차량 신호도 sim 엔진으로 들어오고(SDK 주행 모드), [virtualNow]로 시나리오 시각을 맞춥니다.
+  */
+ fun beginSim(hipass:Boolean=true,feedReal:Boolean=false,virtualNow:Instant?=null) {
+  demoJob?.cancel()
+  demoMisses=emptyList()
+  simFeedsReal=feedReal
+  simOffset=if(virtualNow!=null) java.time.Duration.between(Instant.now(),virtualNow) else java.time.Duration.ZERO
+  simEngine=CoachEngine(zones).also { it.hipass=hipass }
+  _ui.value=_ui.value.copy(demo=true,current=null,recent=emptyList(),today=DaySummary.today(emptyList(),Instant.now()),activeZones=emptyList())
+ }
+
+ /** sim 엔진에 신호를 넣습니다. 요약 시점이면 true. 세션이 없으면 무시합니다. */
+ fun feedSim(signal:Signal,at:Instant):Boolean {
+  val e=simEngine?:return false
+  val step=e.accept(signal,at)
+  apply(step,e,demo=true)
+  return step.summaryDue
+ }
+
+ fun endSim() {
+  if(simEngine==null) return
+  simEngine=null
+  simFeedsReal=false
+  simOffset=java.time.Duration.ZERO
+  stopDemoState()
  }
 }

@@ -1,0 +1,15 @@
+{
+  "name": "souprules-cockpit",
+  "version": "0.1.0",
+  "private": true,
+  "description": "국Rule 가상 콕핏: 중계 서버 + 시나리오 재생기 + 웹 콕핏",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "fake-app": "node test/fake-app.js",
+    "check": "node test/check.js"
+  },
+  "dependencies": {
+    "ws": "^8.18.0"
+  }
+}

@@ -11,6 +11,12 @@ android {
  useLibrary("android.car")
  packaging { resources.excludes += setOf("META-INF/DEPENDENCIES", "META-INF/LICENSE*", "META-INF/NOTICE*") }
  lint { abortOnError = true; checkReleaseBuilds = false }
+ buildTypes {
+  debug {
+   // 가상 내비(tools/cockpit) 중계 서버 주소. adb reverse가 안 되는 에뮬레이터는 ws://10.0.2.2:8765 로 바꿉니다.
+   buildConfigField("String", "COCKPIT_WS", "\"ws://localhost:8765\"")
+  }
+ }
 }
 dependencies {
  implementation(project(":core"))
@@ -22,5 +28,6 @@ dependencies {
  implementation("ai.pleos.playground:TextToSpeech:3.3.1")
  implementation("ai.pleos.playground:SpeechToText:3.3.1")
  implementation("ai.pleos.playground:FusedLocation:1.1.3")
+ debugImplementation("com.squareup.okhttp3:okhttp:4.12.0")
  testImplementation("junit:junit:4.13.2")
 }
