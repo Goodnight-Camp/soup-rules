@@ -21,6 +21,10 @@ class Prefs(context:Context) {
  var muted:Boolean
   get()=sp.getBoolean("muted",false)
   set(v) { sp.edit().putBoolean("muted",v).apply() }
+ /** 렌터카 회사가 알려 준 하이패스 단말 장착 여부(모르면 null). */
+ var hipass:Boolean?
+  get()=if(sp.contains("hipass")) sp.getBoolean("hipass",false) else null
+  set(v) { sp.edit().apply { if(v==null) remove("hipass") else putBoolean("hipass",v) }.apply() }
  var consented:Boolean
   get()=sp.getBoolean("consent",false)
   set(v) { sp.edit().putBoolean("consent",v).apply() }
@@ -28,7 +32,10 @@ class Prefs(context:Context) {
  fun language(systemTag:String?)=LanguageResolver.resolve(manualLang,rentalLang,systemTag)
 
  /** 새 렌트: 이전 운전자의 언어 선택·음소거를 지우고 체크인 정보로 언어를 맞춥니다. */
- fun startRental(lang:Lang?) { sp.edit().remove("manual").remove("muted").putString("rental",lang?.name).apply() }
+ fun startRental(lang:Lang?,hipass:Boolean?) {
+  sp.edit().remove("manual").remove("muted").putString("rental",lang?.name).apply()
+  this.hipass=hipass
+ }
 }
 
 /**
@@ -52,12 +59,12 @@ class NearMissStore(context:Context) {
  companion object {
   fun encode(items:List<NearMiss>)=JSONArray().apply { items.forEach { m->
    put(JSONObject().put("at",m.at.toString()).put("rule",m.rule.name).put("zoneId",m.zoneId).put("zoneName",m.zoneName)
-    .put("speed",m.speedKmh).put("limit",m.limitKmh).put("fine",m.fineKrw))
+    .put("speed",m.speedKmh).put("limit",m.limitKmh).put("detail",m.detail).put("fine",m.fineKrw))
   } }
   fun decode(a:JSONArray)=(0 until a.length()).mapNotNull { i-> runCatching {
    val o=a.getJSONObject(i)
    NearMiss(Instant.parse(o.getString("at")),RuleId.valueOf(o.getString("rule")),o.optString("zoneId").ifEmpty { null },o.optString("zoneName").ifEmpty { null },
-    if(o.has("speed")) o.getInt("speed") else null,if(o.has("limit")) o.getInt("limit") else null,o.getInt("fine"))
+    if(o.has("speed")) o.getInt("speed") else null,if(o.has("limit")) o.getInt("limit") else null,o.optString("detail").ifEmpty { null },o.getInt("fine"))
   }.getOrNull() }
  }
 }

@@ -34,11 +34,14 @@ object ZoneJson {
    else->error("구역 $id: circle 또는 corridor가 필요합니다")
   }
   val schedule=o.optJSONArray("schedule")?.let { s->Schedule((0 until s.length()).map { window(s.getJSONObject(it)) }) }?:Schedule.ALWAYS
-  val limit=if(o.has("limitKmh")) o.getInt("limitKmh") else if(kind==ZoneKind.SCHOOL_ZONE) 30 else null
+  val limit=if(o.has("limitKmh")) o.getInt("limitKmh") else when(kind) { ZoneKind.SCHOOL_ZONE->30; ZoneKind.TOLL_PLAZA->30; else->null }
   val grace=if(o.has("graceMinutes")) o.getInt("graceMinutes") else null
   require(limit==null||limit in 10..120) { "구역 $id: 제한속도 범위 밖 $limit" }
   require(grace==null||grace in 0..60) { "구역 $id: 유예 시간 범위 밖 $grace" }
-  return Zone(id,kind,o.optString("name",id),shape,schedule,limit,grace,o.optBoolean("rightTurnSignal",false),o.optBoolean("sample",fileSample))
+  val reason=o.optString("reason").takeIf { it.isNotEmpty() }?.let { NoStopReason.valueOf(it) }
+  require(kind!=ZoneKind.NO_STOPPING||reason!=null) { "구역 $id: NO_STOPPING에는 reason이 필요합니다" }
+  return Zone(id,kind,o.optString("name",id),shape,schedule,limit,grace,o.optBoolean("rightTurnSignal",false),o.optBoolean("sample",fileSample),
+   reason,o.optBoolean("signalized",false),o.optBoolean("schoolZone",false))
  }
 
  private fun points(a:JSONArray)=(0 until a.length()).map { i->a.getJSONArray(i).let { GeoPoint(it.getDouble(0),it.getDouble(1)) } }

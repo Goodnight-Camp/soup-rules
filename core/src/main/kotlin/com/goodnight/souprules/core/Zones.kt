@@ -14,7 +14,20 @@ enum class ZoneKind {
  PARKING_ENFORCEMENT,
  /** 횡단보도가 있는 우회전 지점(교차로). */
  RIGHT_TURN,
+ /** 횡단보도. 신호 없음 + 어린이보호구역이면 항상 일시정지, 그 밖에는 우회전 직후 안내. */
+ CROSSWALK,
+ /** 회전교차로(중심·바깥 반경). 한국은 반시계 방향. */
+ ROUNDABOUT,
+ /** 주정차 금지 지점(소화전·교차로 모퉁이·버스정류소·횡단보도). [Zone.reason] 참고. */
+ NO_STOPPING,
+ /** 비보호 좌회전 지점. */
+ UNPROTECTED_LEFT,
+ /** 고속도로 요금소(하이패스 차로). */
+ TOLL_PLAZA,
 }
+
+/** 주정차 금지 사유. 거리 기준은 도로교통법 제32조(모퉁이·소화전 5m, 정류소 10m). */
+enum class NoStopReason { HYDRANT, CORNER, BUS_STOP, CROSSWALK }
 
 sealed interface ZoneShape {
  /** 구역 경계까지의 거리. 안이면 0. */
@@ -83,6 +96,12 @@ data class Zone(
  val rightTurnSignal:Boolean=false,
  /** 데모용 예시 구역(실제 단속 위치가 아님). */
  val sample:Boolean=false,
+ /** NO_STOPPING 사유. */
+ val reason:NoStopReason?=null,
+ /** CROSSWALK: 보행자 신호등이 있는지. */
+ val signalized:Boolean=false,
+ /** CROSSWALK: 어린이보호구역 안인지(데이터에 없으면 SCHOOL_ZONE 안에 있는지로 판단). */
+ val schoolZone:Boolean=false,
 )
 
 class ZoneIndex(val zones:List<Zone>) {

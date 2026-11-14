@@ -29,6 +29,12 @@ data class DaySummary(val date:LocalDate,val items:List<NearMiss>) {
    RuleId.RIGHT_TURN_NO_STOP->Strings.render(lang,Msg.NM_RIGHT_TURN)
    RuleId.BUS_LANE_STOP->Strings.render(lang,Msg.NM_BUS_LANE_STOP)
    RuleId.SCHOOL_ZONE_PARKING->Strings.render(lang,Msg.NM_SCHOOL_PARKING)
+   RuleId.SCHOOL_CROSSWALK_NO_STOP->Strings.render(lang,Msg.NM_SCHOOL_CROSSWALK)
+   RuleId.NO_STOPPING->Strings.render(lang,Msg.NM_NO_STOPPING)
+   RuleId.TURN_NO_SIGNAL->Strings.render(lang,Msg.NM_TURN_NO_SIGNAL)
+   RuleId.LANE_CHANGE_NO_SIGNAL->Strings.render(lang,Msg.NM_LANE_CHANGE)
+   RuleId.SEATBELT_DRIVER,RuleId.SEATBELT_PASSENGER->Strings.render(lang,Msg.NM_SEATBELT)
+   RuleId.ROUNDABOUT_WRONG_WAY->Strings.render(lang,Msg.NM_ROUNDABOUT)
    else->Strings.render(lang,Msg.NM_PARKING_CCTV)
   }
 

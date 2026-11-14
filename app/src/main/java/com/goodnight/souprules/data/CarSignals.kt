@@ -10,6 +10,11 @@ import android.os.Looper
 import android.util.Log
 import ai.pleos.playground.vehicle.Vehicle
 import ai.pleos.playground.vehicle.constant.area.TurnSignalValue
+import ai.pleos.playground.vehicle.api.model.area.SeatArea
+import ai.pleos.playground.vehicle.constant.area.SeatValue
+import ai.pleos.playground.vehicle.listener.SeatBeltBuckledStateListener
+import ai.pleos.playground.vehicle.listener.SeatOccupancyListener
+import ai.pleos.playground.vehicle.listener.SteeringWheelAngleListener
 import ai.pleos.playground.vehicle.listener.TurnSignalStateListener
 import com.goodnight.souprules.core.Gear
 import com.goodnight.souprules.core.Signal
@@ -32,6 +37,8 @@ interface CarSignals {
  * - 기어: AAOS GEAR_SELECTION(CAR_POWERTRAIN). Pleos Gear API는 비권장이라 쓰지 않습니다(hyundai-autolog와 같은 선택).
  * - 깜빡이: Pleos TurnSignal(pleos.car.permission.CAR_LIGHTS)을 우선 쓰고, AAOS TURN_SIGNAL_STATE(CAR_EXTERIOR_LIGHTS)를 함께 구독합니다.
  *   두 경로가 같은 값을 보내도 엔진은 '바뀐 순간'만 보므로 중복은 문제가 없습니다.
+ * - 운전대 각도: Pleos SteeringWheel(CAR_DRIVE). 깜빡이 없는 회전·차로 변경 판단에 씁니다.
+ * - 안전띠·착석: Pleos Seat(CAR_SEATS), 좌석마다 등록합니다. 지원하지 않는 좌석은 등록 실패를 무시합니다.
  * 차량 제어 API·CONTROL 권한은 쓰지 않습니다(읽기 전용).
  */
 class PleosCarSignals(private val context:Context,private val onError:(String)->Unit):CarSignals {
@@ -48,6 +55,25 @@ class PleosCarSignals(private val context:Context,private val onError:(String)->
  private val turnListener=object:TurnSignalStateListener {
   override fun onTurnSignalStateUpdated(state:TurnSignalValue?) { main.post { emitTurn(map(state)) } }
   override fun onFailed(exception:Exception) { Log.w(TAG,"Pleos 깜빡이 실패: ${exception.message}") }
+ }
+
+ private val steeringListener=object:SteeringWheelAngleListener {
+  override fun onSteeringWheelAngleUpdated(value:Float?) { value?.let { v-> main.post { flow.tryEmit(Signal.Steering(v.toDouble())) } } }
+  override fun onFailed(exception:Exception) { Log.w(TAG,"운전대 각도 실패: ${exception.message}") }
+ }
+
+ /** 좌석 번호 = 열×3+칸(0=1열 왼쪽=운전석, 한국 좌핸들). */
+ private val seatValues=listOf(SeatValue.ROW_1_LEFT,SeatValue.ROW_1_RIGHT,SeatValue.ROW_2_LEFT,SeatValue.ROW_2_CENTER,SeatValue.ROW_2_RIGHT,SeatValue.ROW_3_LEFT,SeatValue.ROW_3_RIGHT)
+ private fun seatIndex(v:SeatValue)=SeatValue.entries.indexOf(v)
+ private val seatListeners=seatValues.map { v->
+  val i=seatIndex(v)
+  Triple(SeatArea(v),object:SeatBeltBuckledStateListener {
+   override fun onSeatBeltBuckledStateUpdated(state:Boolean?) { state?.let { b-> main.post { flow.tryEmit(Signal.Seat(i,buckled=b)) } } }
+   override fun onFailed(exception:Exception)=Unit
+  },object:SeatOccupancyListener {
+   override fun onSeatOccupancyUpdated(state:Boolean?) { state?.let { o-> main.post { flow.tryEmit(Signal.Seat(i,occupied=o)) } } }
+   override fun onFailed(exception:Exception)=Unit
+  })
  }
 
  private fun map(v:TurnSignalValue?)=when(v) { TurnSignalValue.RIGHT->TurnSignal.RIGHT; TurnSignalValue.LEFT->TurnSignal.LEFT; else->TurnSignal.OFF }
@@ -72,6 +98,12 @@ class PleosCarSignals(private val context:Context,private val onError:(String)->
     vehicle.getTurnSignal().registerTurnSignalState(turnListener)
     vehicle.getTurnSignal().getCurrentTurnSignalState({ v-> main.post { emitTurn(map(v)) } },{ Log.w(TAG,"깜빡이 현재값 실패: ${it.message}") })
    }.onFailure { Log.w(TAG,"Pleos 깜빡이 구독 실패: ${it.message}") }
+   runCatching { vehicle.getSteeringWheel().registerSteeringWheelAngle(steeringListener) }.onFailure { Log.w(TAG,"운전대 각도 구독 실패: ${it.message}") }
+   val seat=vehicle.getSeat()
+   seatListeners.forEach { (area,belt,occ)->
+    runCatching { seat.registerSeatBeltBuckledState(area,belt) }.onFailure { Log.i(TAG,"안전띠 미지원 ${area.values.toList()}") }
+    runCatching { seat.registerSeatOccupancy(area,occ) }.onFailure { Log.i(TAG,"착석 미지원 ${area.values.toList()}") }
+   }
   },1500)
   car=Car.createCar(context,main,Car.CAR_WAIT_TIMEOUT_DO_NOT_WAIT) { c,ready->
    if(!ready) { manager=null; return@createCar }
@@ -93,6 +125,8 @@ class PleosCarSignals(private val context:Context,private val onError:(String)->
 
  override fun close() {
   runCatching { vehicle.getTurnSignal().unregisterTurnSignalState(turnListener) }
+  runCatching { vehicle.getSteeringWheel().unregisterSteeringWheelAngle(steeringListener) }
+  seatListeners.forEach { (area,belt,occ)-> runCatching { vehicle.getSeat().unregisterSeatBeltBuckledState(area,belt); vehicle.getSeat().unregisterSeatOccupancy(area,occ) } }
   runCatching { vehicle.release() }
   runCatching { manager?.unregisterCallback(callback) }
   runCatching { car?.disconnect() }

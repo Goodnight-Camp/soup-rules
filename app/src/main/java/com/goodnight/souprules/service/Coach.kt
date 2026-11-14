@@ -40,7 +40,8 @@ class Coach(
  private val systemTag:()->String?,
  private val scope:CoroutineScope,
 ) {
- private var engine=CoachEngine(zones)
+ private var engine=newEngine()
+ private fun newEngine()=CoachEngine(zones).also { it.hipass=prefs.hipass }
  private val _ui=MutableStateFlow(CoachUiState(sampleZones=zones.hasSample))
  val ui:StateFlow<CoachUiState> =_ui.asStateFlow()
  private var demoJob:Job?=null
@@ -89,10 +90,10 @@ class Coach(
  }
 
  /** 렌터카 체크인: 면허 발급국 또는 언어 태그로 시작 언어를 정하고 이전 운전자 기록을 지웁니다. */
- fun startRental(lang:Lang?) {
-  prefs.startRental(lang)
+ fun startRental(lang:Lang?,hipass:Boolean?=null) {
+  prefs.startRental(lang,hipass)
   store.clear(); demoMisses=emptyList()
-  engine=CoachEngine(zones)
+  engine=newEngine()
   val resolved=prefs.language(systemTag())
   _ui.value=CoachUiState(lang=resolved,sampleZones=zones.hasSample,today=DaySummary.today(emptyList(),Instant.now()))
   voice.setMuted(false)
@@ -138,7 +139,8 @@ class Coach(
  fun startDemo(demo:DemoDrive) {
   if(demoJob?.isActive==true) return
   demoMisses=emptyList()
-  val e=CoachEngine(zones)
+  // 데모는 하이패스 장착 차량으로 가정합니다.
+  val e=CoachEngine(zones).also { it.hipass=true }
   _ui.value=_ui.value.copy(demo=true,current=null,recent=emptyList(),today=DaySummary.today(emptyList(),Instant.now()),activeZones=emptyList())
   demoJob=scope.launch {
    try {

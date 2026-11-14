@@ -74,6 +74,8 @@ class CoachService:Service() {
    i.getStringExtra("gear")?.let { coach.accept(Signal.Shift(Gear.valueOf(it.uppercase()))) }
    i.getStringExtra("turn")?.let { coach.accept(Signal.Turn(TurnSignal.valueOf(it.uppercase()))) }
    if(i.hasExtra("speed")) coach.accept(Signal.Speed(i.getStringExtra("speed")!!.toDouble()))
+   if(i.hasExtra("steer")) coach.accept(Signal.Steering(i.getStringExtra("steer")!!.toDouble()))
+   if(i.hasExtra("seat")) coach.accept(Signal.Seat(i.getStringExtra("seat")!!.toInt(),i.getStringExtra("occupied")?.toBooleanStrictOrNull(),i.getStringExtra("buckled")?.toBooleanStrictOrNull()))
    if(i.hasExtra("lat")) coach.accept(Signal.Position(GeoPoint(i.getStringExtra("lat")!!.toDouble(),i.getStringExtra("lng")!!.toDouble())))
    when(i.getStringExtra("event")) {
     "demo"->coach.startDemo(com.goodnight.souprules.data.DemoDrive(this))

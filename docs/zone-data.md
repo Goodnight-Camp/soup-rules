@@ -25,10 +25,12 @@
 
 | 필드 | 뜻 |
 | --- | --- |
-| `kind` | `SCHOOL_ZONE` · `BUS_LANE` · `PARKING_ENFORCEMENT` · `RIGHT_TURN` |
+| `kind` | `SCHOOL_ZONE` · `BUS_LANE` · `PARKING_ENFORCEMENT` · `RIGHT_TURN` · `CROSSWALK` · `ROUNDABOUT` · `NO_STOPPING` · `UNPROTECTED_LEFT` · `TOLL_PLAZA` |
+| `reason` | `NO_STOPPING` 필수: `HYDRANT`(5m) · `CORNER`(5m) · `BUS_STOP`(10m) · `CROSSWALK`. 반경은 이 거리에 맞춰 넣습니다 |
+| `signalized` / `schoolZone` | `CROSSWALK`: 보행자 신호등 유무, 어린이보호구역 여부. `schoolZone`이 없으면 SCHOOL_ZONE 안에 있는지로 판단합니다. 신호 없음 + 보호구역이면 "항상 일시정지" 규칙이 적용됩니다 |
 | `circle` / `corridor` | 원(중심·반경 m) 또는 도로 중심선 + 반폭(m). 둘 중 하나 |
 | `schedule` | 없으면 상시. `days`: `ALL`, `MON-FRI`, `SAT,SUN`, `FRI-MON`. `end`가 `start`보다 이르면 자정을 넘깁니다. 같으면 그 요일 종일입니다. 시각은 KST입니다 |
-| `limitKmh` | 어린이보호구역 제한속도. 없으면 30 |
+| `limitKmh` | 어린이보호구역 제한속도(없으면 30), 요금소 하이패스 차로 제한속도(없으면 30) |
 | `graceMinutes` | 주정차 단속 유예(분). 0이면 즉시 단속. 없으면 보수적으로 1분 |
 | `rightTurnSignal` | 우회전 신호등(적색 화살표)이 있는 교차로 |
 | `sample` | 예시 데이터 표시. 파일 단위로 줄 수도 있고, 하나라도 있으면 화면에 경고를 띄웁니다 |
@@ -43,5 +45,10 @@
 - 전국주정차단속위치표준데이터 또는 지자체 CCTV 목록: 위치·단속 시간·유예 → `PARKING_ENFORCEMENT`.
 - 버스전용차로: 지자체(제주도 등) 구간·운영 시간 자료 → `BUS_LANE` 구간.
 - 우회전 신호등 설치 교차로: 경찰청·지자체 목록 → `RIGHT_TURN`(`rightTurnSignal: true`). 횡단보도가 있는 일반 우회전 지점은 도로 데이터에서 뽑아야 합니다.
+- 횡단보도: 전국횡단보도표준데이터(신호기 유무 포함) → `CROSSWALK`(`signalized`).
+- 회전교차로: 지자체·국토부 목록 → `ROUNDABOUT`(중심과 바깥 반경).
+- 소화전·버스정류소: 소방용수시설·정류소 위치 데이터 → `NO_STOPPING`. 교차로 모퉁이는 도로 데이터의 교차로 꼭짓점에서 만듭니다.
+- 비보호 좌회전: 경찰청 교통안전표지 데이터 → `UNPROTECTED_LEFT`.
+- 요금소: 한국도로공사 영업소 위치 → `TOLL_PLAZA`.
 
 실제 데이터에는 `"sample": false`를 주고, 출처와 기준일을 파일의 `_source` 같은 필드에 남기세요. 로더는 모르는 필드를 무시합니다.

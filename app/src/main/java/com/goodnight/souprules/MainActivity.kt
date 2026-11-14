@@ -24,6 +24,7 @@ class MainActivity:ComponentActivity() {
   /**
    * 렌터카 체크인 연동: 대여 시스템(또는 직원 태블릿)이 차량에 보내는 시작 신호.
    * extras: "lang"(BCP-47, 예: ms-MY) 또는 "licenseCountry"(ISO 3166-1, 예: SG). 둘 다 없으면 기기 언어 규칙을 따릅니다.
+   * "hipass"(true/false): 하이패스 단말 장착 여부. Pleos Toll API로는 카드 유무를 알 수 없어 렌터카 회사가 알려 줍니다.
    */
   const val ACTION_RENTAL_START="com.goodnight.souprules.RENTAL_START"
   const val PERMISSION_CAR_SPEED="android.car.permission.CAR_SPEED"
@@ -65,7 +66,8 @@ class MainActivity:ComponentActivity() {
  private fun handle(intent:Intent?) {
   if(intent?.action!=ACTION_RENTAL_START) return
   val lang=Lang.fromTag(intent.getStringExtra("lang")) ?: CountryLanguage.of(intent.getStringExtra("licenseCountry"))
-  Log.i("SoupRental","렌트 시작 → ${lang?:"기기 언어 규칙"}")
-  app.coach.startRental(lang)
+  val hipass=if(intent.hasExtra("hipass")) intent.getStringExtra("hipass")?.toBooleanStrictOrNull() ?: intent.getBooleanExtra("hipass",false) else null
+  Log.i("SoupRental","렌트 시작 → ${lang?:"기기 언어 규칙"} · 하이패스 ${hipass?:"모름"}")
+  app.coach.startRental(lang,hipass)
  }
 }

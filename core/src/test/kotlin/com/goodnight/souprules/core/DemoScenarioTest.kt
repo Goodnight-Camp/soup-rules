@@ -37,6 +37,7 @@ class DemoScenarioTest {
   assertEquals(listOf(
    RuleId.BUS_LANE_ACTIVE,
    RuleId.SCHOOL_ZONE_ENTER,
+   RuleId.SCHOOL_BUS_TIP,
    RuleId.SCHOOL_ZONE_SPEEDING,
    RuleId.RIGHT_TURN_ZONE,
    RuleId.RIGHT_TURN_NO_STOP,

@@ -32,7 +32,8 @@ class CoachEngineTest {
   val e=engine(school)
   e.drive(0,Signal.Shift(Gear.D),Signal.Speed(25.0),Signal.Position(far))
   val s=e.drive(1,Signal.Position(GeoPoint(33.5005,126.5)))
-  assertEquals(listOf(RuleId.SCHOOL_ZONE_ENTER),s.alerts.map { it.rule })
+  // 첫 스쿨존이면 통학버스 규칙 설명이 뒤따릅니다.
+  assertEquals(listOf(RuleId.SCHOOL_ZONE_ENTER,RuleId.SCHOOL_BUS_TIP),s.alerts.map { it.rule })
   assertEquals("30",s.alerts[0].args["limit"])
   assertEquals(Severity.INFO,s.alerts[0].severity)
   // 같은 방문에서는 다시 알리지 않습니다.

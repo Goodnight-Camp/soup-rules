@@ -28,6 +28,10 @@ sealed interface Signal {
  data class Shift(val gear:Gear):Signal
  data class Turn(val signal:TurnSignal):Signal
  data class Position(val point:GeoPoint):Signal
+ /** 운전대 각도(도). 부호 규약은 차량마다 다를 수 있어 방향이 바뀌는 순간만 씁니다. */
+ data class Steering(val degrees:Double):Signal
+ /** 좌석별 착석·안전띠. [seat]는 열×3+칸(0=1열 왼쪽=운전석). null은 모름. */
+ data class Seat(val seat:Int,val occupied:Boolean?=null,val buckled:Boolean?=null):Signal
  /** 시간 경과만 알립니다(주차 단속 예고·요약 시점 판단). */
  data object Tick:Signal
 }
