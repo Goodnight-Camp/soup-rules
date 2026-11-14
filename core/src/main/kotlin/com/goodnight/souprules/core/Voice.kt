@@ -25,8 +25,8 @@ class VoiceNegotiator(val wanted:Lang,supported:Set<String> =OfficialVoice.local
  fun fail():VoiceOption? { if(index<chain.size) index++; return current }
 }
 
-/** 말할 문장 1건. [key]가 같은 안내는 겹쳐 쌓지 않습니다. */
-data class Announcement(val text:String,val severity:Severity,val key:String)
+/** 말할 문장 1건. [key]가 같은 안내는 겹쳐 쌓지 않습니다. [earcon]이면 말하기 직전에 심각도 효과음을 냅니다. */
+data class Announcement(val text:String,val severity:Severity,val key:String,val earcon:Boolean=false)
 
 sealed interface QueueAction {
  /** 바로 말하기. interrupt=true면 지금 말하던 것을 끊습니다. */

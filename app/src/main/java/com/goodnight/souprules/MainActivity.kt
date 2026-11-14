@@ -15,6 +15,7 @@ import com.goodnight.souprules.core.CountryLanguage
 import com.goodnight.souprules.core.Lang
 import com.goodnight.souprules.data.DemoDrive
 import com.goodnight.souprules.service.CoachService
+import com.goodnight.souprules.ui.AppVisibility
 import com.goodnight.souprules.ui.CoachScreen
 import com.goodnight.souprules.ui.ScreenActions
 import com.goodnight.souprules.ui.SoupTheme
@@ -62,6 +63,9 @@ class MainActivity:ComponentActivity() {
 
  override fun onNewIntent(intent:Intent) { super.onNewIntent(intent); setIntent(intent); handle(intent) }
  override fun onResume() { super.onResume(); refreshMissing() }
+ // 화면이 보이는 동안에는 헤드업 알림을 띄우지 않습니다(같은 내용이 화면 카드로 나옴).
+ override fun onStart() { super.onStart(); AppVisibility.foreground=true }
+ override fun onStop() { AppVisibility.foreground=false; super.onStop() }
 
  private fun handle(intent:Intent?) {
   if(intent?.action!=ACTION_RENTAL_START) return

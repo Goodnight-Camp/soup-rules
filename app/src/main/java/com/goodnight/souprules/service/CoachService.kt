@@ -19,6 +19,8 @@ import com.goodnight.souprules.core.*
 import com.goodnight.souprules.data.CarSignals
 import com.goodnight.souprules.data.LocationFeed
 import com.goodnight.souprules.data.PleosCarSignals
+import com.goodnight.souprules.ui.AppVisibility
+import com.goodnight.souprules.ui.RuleIcons
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.distinctUntilChanged
@@ -32,6 +34,11 @@ class CoachService:Service() {
  companion object {
   private const val ID=1
   private const val CHANNEL="soup_rules_status"
+  /** 긴급·주의 안내: 다른 앱(내비)이 앞에 있을 때 화면 위에 잠깐 뜨는 알림. 소리는 효과음·음성이 따로 냅니다. */
+  private const val ALERT_CHANNEL="soup_rules_alerts"
+  private const val ALERT_ID=2
+  /** 화면 위 알림은 이 시간 뒤 사라집니다(지나간 안내가 남지 않게). */
+  private const val ALERT_TIMEOUT_MS=10_000L
   const val DEBUG_SIGNAL="DEBUG_SIGNAL"
 
   fun canStart(context:Context)=context.checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION)==PackageManager.PERMISSION_GRANTED
@@ -49,6 +56,9 @@ class CoachService:Service() {
   super.onCreate()
   val nm=getSystemService(NotificationManager::class.java)
   nm.createNotificationChannel(NotificationChannel(CHANNEL,"Korea Road Rules",NotificationManager.IMPORTANCE_LOW).apply { setSound(null,null) })
+  nm.createNotificationChannel(NotificationChannel(ALERT_CHANNEL,"Korea Road Rules · alerts",NotificationManager.IMPORTANCE_HIGH).apply {
+   description="Urgent rule alerts while another app is on screen"; setSound(null,null); enableVibration(false)
+  })
   startForeground(ID,build(coach.ui.value),ServiceInfo.FOREGROUND_SERVICE_TYPE_LOCATION)
   car=PleosCarSignals(this) { coach.reportError(it) }.also { c->
    scope.launch { c.signals.collect { coach.accept(it) } }
@@ -59,6 +69,12 @@ class CoachService:Service() {
   scope.launch { while(isActive) { delay(1000); coach.accept(Signal.Tick) } }
   scope.launch {
    coach.ui.map { Triple(it.lang,it.current?.alert,it.vehicle.gear) }.distinctUntilChanged().collectLatest { nm.notify(ID,build(coach.ui.value)) }
+  }
+  // 앱 화면이 보이지 않을 때(내비가 앞에 있을 때) 긴급·주의 안내는 화면 위 알림으로도 보여 줍니다.
+  scope.launch {
+   coach.alerts.collect { a->
+    if(a.severity>=Severity.WARN && !AppVisibility.foreground) runCatching { nm.notify(ALERT_ID,buildAlert(a,coach.ui.value.lang)) }
+   }
   }
  }
 
@@ -91,10 +107,30 @@ class CoachService:Service() {
   }.onFailure { Log.w("SoupService","디버그 신호 오류: ${it.message}") }
  }
 
+ /** 아이콘(규칙 그림) + 짧은 제목 + 긴 설명. 오버레이가 아닌 Android 표준 헤드업 알림입니다. */
+ private fun buildAlert(a:Alert,lang:Lang):Notification {
+  val visual=AlertVisuals.of(a)
+  val text=Strings.render(lang,a)
+  val open=PendingIntent.getActivity(this,1,Intent(this,MainActivity::class.java),PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
+  return Notification.Builder(this,ALERT_CHANNEL).setSmallIcon(RuleIcons.of(visual.icon))
+   .setContentTitle(Strings.render(lang,visual.headline,visual.args)).setContentText(text).setStyle(Notification.BigTextStyle().bigText(text))
+   .setColor(android.graphics.Color.parseColor(if(a.severity==Severity.URGENT) "#FF6A4D" else "#F5B83D"))
+   .setAutoCancel(true).setTimeoutAfter(ALERT_TIMEOUT_MS).setOnlyAlertOnce(false).setShowWhen(false)
+   .setCategory(Notification.CATEGORY_STATUS).setContentIntent(open).build()
+ }
+
  private fun build(s:CoachUiState):Notification {
   val lang=s.lang
   val title=Strings.render(lang,Msg.APP_NAME)
-  val text=s.current?.alert?.let { Strings.render(lang,it) } ?: Strings.render(lang,when {
+  // 상태 알림도 최근 안내가 있으면 규칙 아이콘·짧은 제목을 씁니다.
+  s.current?.alert?.let { a->
+   val v=AlertVisuals.of(a); val body=Strings.render(lang,a)
+   return Notification.Builder(this,CHANNEL).setSmallIcon(RuleIcons.of(v.icon))
+    .setContentTitle(Strings.render(lang,v.headline,v.args)).setContentText(body).setStyle(Notification.BigTextStyle().bigText(body))
+    .setOngoing(true).setOnlyAlertOnce(true).setShowWhen(false).setCategory(Notification.CATEGORY_NAVIGATION)
+    .setContentIntent(PendingIntent.getActivity(this,0,Intent(this,MainActivity::class.java),PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)).build()
+  }
+  val text=Strings.render(lang,when {
    !s.carConnected && !s.demo->Msg.STATUS_WAITING
    s.vehicle.gear==Gear.P->Msg.STATUS_PARKED
    else->Msg.STATUS_DRIVING
