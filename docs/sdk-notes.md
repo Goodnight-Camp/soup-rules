@@ -8,7 +8,6 @@
 | --- | --- | --- |
 | 깜빡이 | `vehicle.getTurnSignal()`: `registerTurnSignalState(TurnSignalStateListener)`, `getCurrentTurnSignalState(onComplete, onFailed)`, `unregisterTurnSignalState`. 값은 `TurnSignalValue` OFF/RIGHT/LEFT이고 리스너 인자는 nullable입니다. | `pleos.car.permission.CAR_LIGHTS` |
 | (쓰지 않음) 기어 | `getGear()`는 비권장입니다. autolog와 마찬가지로 AAOS GEAR_SELECTION을 씁니다. | `pleos.car.permission.CAR_DRIVE` |
-
 | 운전대 각도 | `vehicle.getSteeringWheel()`: `registerSteeringWheelAngle(SteeringWheelAngleListener)`, `onSteeringWheelAngleUpdated(Float?)`(도). 부호 규약은 확인하지 못해 방향이 바뀌는 것만 씁니다. | `pleos.car.permission.CAR_DRIVE` |
 | 안전띠·착석 | `vehicle.getSeat()`: `registerSeatBeltBuckledState(SeatArea, SeatBeltBuckledStateListener)`, `registerSeatOccupancy(SeatArea, SeatOccupancyListener)`, 인자는 `Boolean?`. `SeatArea(SeatValue.ROW_1_LEFT …)`로 좌석마다 등록합니다. 지원하지 않는 좌석은 등록 실패를 무시합니다. | `pleos.car.permission.CAR_SEATS` |
 | (쓰지 않음) 요금소 | `vehicle.getToll()`에는 ETCS 안내 음량 get/set/register만 있고 하이패스 카드 장착 여부는 없습니다. 그래서 렌터카 체크인의 `hipass` 값을 씁니다. | `pleos.car.permission.CAR_TOLL` |
