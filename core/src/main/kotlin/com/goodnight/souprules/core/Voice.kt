@@ -6,15 +6,15 @@ import java.util.Locale
 data class VoiceOption(val locale:Locale,val lang:Lang)
 
 /**
- * 운전자 언어 → Pleos STT/TTS 로케일 후보 순서.
+ * 운전자 언어 → Pleos STT/TTS 로케일 후보 순서. [supported](기본: 공식 로케일)에 있는 것만 넣습니다.
  * 엔진이 UNAVAILABLE_LANGUAGE(또는 setLocale 예외)로 거부하면 [fail]로 다음 후보로 넘어갑니다.
  * 운전자 언어가 안 되면 영어로 말하고(문구도 영어), 영어도 안 되면 음성을 끄고 화면만 씁니다.
  * 한국어로는 내려가지 않습니다(외국인 운전자에게 의미가 없음). 운전자가 한국어를 고른 경우만 한국어입니다.
  */
-class VoiceNegotiator(val wanted:Lang) {
+class VoiceNegotiator(val wanted:Lang,supported:Set<String> =OfficialVoice.locales) {
  val chain:List<VoiceOption> =buildList {
-  wanted.voiceLocales.forEach { add(VoiceOption(it,wanted)) }
-  if(wanted!=Lang.EN) Lang.EN.voiceLocales.forEach { add(VoiceOption(it,Lang.EN)) }
+  wanted.voiceTags.filter { it in supported }.forEach { add(VoiceOption(java.util.Locale.forLanguageTag(it),wanted)) }
+  if(wanted!=Lang.EN) Lang.EN.voiceTags.filter { it in supported }.forEach { add(VoiceOption(java.util.Locale.forLanguageTag(it),Lang.EN)) }
  }
  private var index=0
  val current:VoiceOption? get()=chain.getOrNull(index)
@@ -80,6 +80,8 @@ sealed interface Command {
  */
 object CommandParser {
  private val languageNames:List<Pair<String,Lang>> =listOf(
+  "français" to Lang.FR,"francais" to Lang.FR,"french" to Lang.FR,"프랑스어" to Lang.FR,"フランス語" to Lang.FR,"法语" to Lang.FR,"法語" to Lang.FR,"francés" to Lang.FR,"frances" to Lang.FR,
+  "español" to Lang.ES,"espanol" to Lang.ES,"castellano" to Lang.ES,"spanish" to Lang.ES,"스페인어" to Lang.ES,"スペイン語" to Lang.ES,"西班牙语" to Lang.ES,"西班牙語" to Lang.ES,"espagnol" to Lang.ES,
   // 일본어 STT는 한자·히라가나·가타카나 어느 쪽으로도 나올 수 있어 모두 넣습니다.
   "インドネシア語" to Lang.ID,"インドネシア" to Lang.ID,"マレー語" to Lang.MS,"マレーシア語" to Lang.MS,
   "えいご" to Lang.EN,"かんこくご" to Lang.KO,"ちゅうごくご" to Lang.ZH_HANS,"中国語" to Lang.ZH_HANS,"台湾語" to Lang.ZH_HANT,"繁体字" to Lang.ZH_HANT,"簡体字" to Lang.ZH_HANS,
@@ -94,11 +96,11 @@ object CommandParser {
   "ภาษาไทย" to Lang.TH,"thai" to Lang.TH,"태국어" to Lang.TH,
   "tiếng việt" to Lang.VI,"vietnamese" to Lang.VI,"베트남어" to Lang.VI,
  )
- private val unmute=listOf("unmute","voice on","sound on","소리 켜","음성 켜","ミュート解除","みゅーとかいじょ","音声オン","おんせいおん","音を出して","おとをだして","音声を出して","取消静音","打开声音","取消靜音","打開聲音","buka suara","hidupkan suara","bunyi semula","nyalakan suara","เปิดเสียง","bật tiếng","bật giọng")
- private val mute=listOf("mute","quiet","silence","be quiet","조용","음소거","소리 꺼","음성 꺼","ミュート","みゅーと","静かに","しずかに","黙って","だまって","音を消して","おとをけして","静音","安静","靜音","安靜","senyap","diam","bisukan","เงียบ","ปิดเสียง","im lặng","tắt tiếng")
- private val repeat=listOf("repeat","again","say that again","what","다시","반복","뭐라고","もう一度","もういちど","もう1度","もっかい","繰り返","くりかえ","リピート","なんて","何て","再说","重复","再說","重複","ulang","sekali lagi","อีกครั้ง","พูดซ้ำ","nhắc lại","lặp lại")
- private val summary=listOf("summary","today","how did i do","요약","오늘","まとめ","今日","きょう","サマリー","さまりー","总结","總結","今天","ringkasan","hari ini","สรุป","วันนี้","tóm tắt","hôm nay")
- private val help=listOf("help","도움","도와","ヘルプ","へるぷ","助けて","たすけて","帮助","幫助","bantuan","tolong","ช่วย","trợ giúp","giúp")
+ private val unmute=listOf("unmute","voice on","sound on","소리 켜","음성 켜","ミュート解除","みゅーとかいじょ","音声オン","おんせいおん","音を出して","おとをだして","音声を出して","取消静音","打开声音","取消靜音","打開聲音","buka suara","hidupkan suara","bunyi semula","nyalakan suara","remets le son","remettre le son","active le son","réactive le son","rétablis le son","activa el sonido","activar el sonido","activar sonido","quita el silencio","reactiva el sonido","เปิดเสียง","bật tiếng","bật giọng")
+ private val mute=listOf("mute","quiet","silence","be quiet","조용","음소거","소리 꺼","음성 꺼","ミュート","みゅーと","静かに","しずかに","黙って","だまって","音を消して","おとをけして","静音","安静","靜音","安靜","senyap","diam","bisukan","tais-toi","muet","coupe le son","couper le son","silencio","silenciar","cállate","callate","quita el sonido","เงียบ","ปิดเสียง","im lặng","tắt tiếng")
+ private val repeat=listOf("repeat","again","say that again","what","다시","반복","뭐라고","もう一度","もういちど","もう1度","もっかい","繰り返","くりかえ","リピート","なんて","何て","再说","重复","再說","重複","ulang","sekali lagi","répète","repete","répéter","encore","redis","repite","repetir","otra vez","de nuevo","อีกครั้ง","พูดซ้ำ","nhắc lại","lặp lại")
+ private val summary=listOf("summary","today","how did i do","요약","오늘","まとめ","今日","きょう","サマリー","さまりー","总结","總結","今天","ringkasan","hari ini","résumé","bilan","aujourd'hui","resumen","hoy","สรุป","วันนี้","tóm tắt","hôm nay")
+ private val help=listOf("help","도움","도와","ヘルプ","へるぷ","助けて","たすけて","帮助","幫助","bantuan","tolong","aide","ayuda","ช่วย","trợ giúp","giúp")
 
  fun parse(text:String?):Command? {
   val t=text?.trim()?.lowercase()?.takeIf { it.isNotEmpty() }?:return null

@@ -60,15 +60,25 @@ Pleos `Toll` API는 ETCS 안내 음량만 제공하고 카드 장착 여부는 �
 
 Pleos `SpeechToText`/`TextToSpeech` 3.3.1(ON_DEVICE)을 사용합니다. 사용법은 hyundai-autolog의 `VoiceSource`를 따랐습니다. 리스너는 initialize 성공 뒤에 붙이고, 로케일은 국가까지 포함한 태그로 넘기며(`ko`가 아니라 `ko-KR`), 최종 결과(`isFinal`)만 처리합니다. Gleo AI에는 앱이 직접 쓸 수 있는 받아쓰기 API가 없습니다. 이 SDK가 Gleo 모델을 쓰는 공개 경로입니다(autolog `docs/sdk-notes.md`, 2026-11-12 확인).
 
-**지원 언어(9개):** English, 한국어, 日本語, 简体中文, 繁體中文, Bahasa Melayu, ไทย, Tiếng Việt, Bahasa Indonesia. 화면 문구와 음성 문구는 모든 언어에 같은 키로 들어 있고, 테스트가 누락과 자리표시자 불일치를 막습니다.
+**지원 언어(11개):** 화면 문구는 11개 언어 모두 운전자 언어로 나옵니다. 음성은 Pleos STT/TTS SDK가 공식 지원하는 로케일(ko-KR, en-US, fr-CA, es-US, es-MX)이 있는 4개 언어만 그 언어로 나옵니다. 나머지 언어는 영어 음성으로 안내하고, 화면에 그 사실을 운전자 언어로 띄웁니다. 언어 선택 창에서는 음성까지 되는 언어에 🔊를 붙입니다.
+
+| 언어 | 화면 | 음성(STT/TTS) 로케일 |
+| --- | --- | --- |
+| English | ✅ | en-US |
+| 한국어 | ✅ | ko-KR |
+| Français | ✅ | fr-CA |
+| Español | ✅ | es-US → es-MX |
+| 日本語 · 简体中文 · 繁體中文 · Bahasa Melayu · ไทย · Tiếng Việt · Bahasa Indonesia | ✅ | 공식 미지원 → 영어 음성 |
+
+공식 목록 밖의 로케일(ja-JP 등)은 시도하지 않습니다. 엔진이 받아들이더라도 다른 언어 목소리로 읽을 위험이 있기 때문입니다. Gleo 비서의 다국어 지원과 앱용 SDK의 지원 범위는 별개입니다. 실차가 더 지원하는지는 아래 `voice_probe`로 확인한 뒤 `OfficialVoice.locales`를 넓히면 됩니다. 화면 문구와 음성 문구는 모든 언어에 같은 키로 들어 있고, 테스트가 누락과 자리표시자 불일치를 막습니다.
 
 **운전자 언어 결정**(`LanguageResolver`)은 아래 순서를 따릅니다.
 1. 운전자가 고른 언어. 화면에서는 P에서만, 음성으로는 언제든 바꿀 수 있습니다.
-2. 렌터카 체크인으로 받은 언어 또는 면허 발급국(SG→영어, MY→말레이어, HK/TW→번체 등).
+2. 렌터카 체크인으로 받은 언어 또는 면허 발급국(SG→영어, MY→말레이어, HK/TW→번체, FR/BE→프랑스어, ES/MX/중남미→스페인어 등. 캐나다는 영어로 시작).
 3. 기기 언어. 단, 한국어면 영어로 시작합니다. 렌터카 기기는 대부분 한국어이고 대상은 외국인이기 때문입니다.
 4. 영어.
 
-**엔진이 그 언어를 지원하지 않을 때**(`VoiceNegotiator`)는 운전자 언어 로케일(예: 번체는 zh-TW, zh-HK)을 차례로 시도한 뒤 영어(en-US, en-GB)로 내려갑니다. `setLocale` 예외나 `UNAVAILABLE_LANGUAGE` 오류가 나면 다음 후보로 넘어가고, 같은 안내를 새 언어로 다시 만들어 말합니다. 영어로 말하게 되면 화면에 운전자 언어로 "이 차량에서는 ○○ 음성을 지원하지 않아 English로 안내합니다"를 띄웁니다. 영어도 안 되면 음성을 끄고 화면으로만 안내합니다. 한국어로는 내려가지 않습니다.
+**엔진이 그 언어를 지원하지 않을 때**(`VoiceNegotiator`)는 운전자 언어의 공식 로케일(예: 스페인어는 es-US, es-MX)을 차례로 시도한 뒤 영어(en-US)로 내려갑니다. `setLocale` 예외나 `UNAVAILABLE_LANGUAGE` 오류가 나면 다음 후보로 넘어가고, 같은 안내를 새 언어로 다시 만들어 말합니다. 영어로 말하게 되면 화면에 운전자 언어로 "이 차량에서는 ○○ 음성을 지원하지 않아 English로 안내합니다"를 띄웁니다. 영어도 안 되면 음성을 끄고 화면으로만 안내합니다. 한국어로는 내려가지 않습니다.
 
 **차량이 실제로 지원하는 언어 확인** (디버그 빌드): Gleo 비서가 다국어를 지원해도, 앱이 쓰는 STT/TTS SDK가 그 언어를 지원한다는 보장은 없습니다. 국내 사양 렌터카에 일본어 음성 모델이 없을 수도 있습니다. 아래 명령으로 9개 언어의 로케일을 하나씩 시도해 결과를 남깁니다. 말하기는 인사말을 실제로 끝까지 말하면 OK이고, 듣기는 인식이 시작되면 OK입니다. `UNAVAILABLE_LANGUAGE`, `LOCALE_REJECTED`면 미지원입니다.
 
@@ -84,10 +94,10 @@ adb shell run-as com.goodnight.souprules cat files/voice-probe.txt
 
 | 명령 | 예 |
 | --- | --- |
-| 다시 말하기 | repeat · 다시 · もう一度 · 再说 · ulang · พูดซ้ำ · nhắc lại |
-| 오늘 요약 | summary · 요약 · まとめ · 总结 · ringkasan · สรุป · tóm tắt |
-| 음소거 / 해제 | mute / voice on · 조용히 / 소리 켜 · ミュート / ミュート解除 · 静音 / 取消静音 · เงียบ / เปิดเสียง |
-| 언어 바꾸기 | "Bahasa Melayu", "繁體中文", "日本語", "English" … |
+| 다시 말하기 | repeat · 다시 · répète · repite · もう一度 · 再说 · ulang · พูดซ้ำ · nhắc lại |
+| 오늘 요약 | summary · 요약 · résumé · resumen · まとめ · 总结 · ringkasan · สรุป · tóm tắt |
+| 음소거 / 해제 | mute / voice on · 조용히 / 소리 켜 · silence / remets le son · silencio / activa el sonido · ミュート / ミュート解除 · 静音 / 取消静音 · เงียบ / เปิดเสียง |
+| 언어 바꾸기 | "Français", "Español", "Bahasa Melayu", "繁體中文", "日本語", "English" … |
 
 ## 실행
 
@@ -159,7 +169,7 @@ adb shell am broadcast -n com.goodnight.souprules/.debug.DebugSignalReceiver -a 
 - **실제 음성 지원 언어는 확인하지 못했습니다.** 위의 `voice_probe`로 실차나 Pleos 에뮬레이터에서 확인해야 합니다. Pleos 온디바이스 STT/TTS가 한국어 외에 어떤 로케일을 지원하는지 아직 모릅니다. 폴백 경로는 구현했지만 실차 확인이 필요합니다. autolog 에뮬레이터에서는 ko-KR만 확인됐습니다.
 - **Pleos TurnSignal 실신호와 CAR_SPEED 권한 조합도 실차 확인이 필요합니다.**
 - 이 커밋에서 확인한 범위는 다음과 같습니다. 자동차용 에뮬레이터에서 실행해 보지는 않았고, 분할 화면도 크기별 배치 규칙만 단위 테스트로 확인했습니다.
-  - JVM 단위 테스트 85개(core 80개, 화면 배치 5개)
+  - JVM 단위 테스트 91개(core 86개, 화면 배치 5개)
   - `assembleDebug`
   - `lintDebug`(오류 0)
 

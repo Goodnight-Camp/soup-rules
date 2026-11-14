@@ -206,7 +206,8 @@ private fun nearMissRule(r:RuleId)=when(r) {
      val selected=l==current
      Button(onClick={ onPick(l) },modifier=Modifier.heightIn(min=72.dp).testTag("lang-${l.name}"),
       colors=if(selected) ButtonDefaults.buttonColors() else ButtonDefaults.buttonColors(containerColor=SoupColors.Surface,contentColor=SoupColors.Text)) {
-      Text(l.nativeName,style=MaterialTheme.typography.titleMedium,textAlign=TextAlign.Center)
+      // 🔊 = 이 차량(Pleos 공식 로케일)에서 음성 안내까지 되는 언어. 나머지는 화면은 그 언어, 음성은 영어입니다.
+      Text(if(l.voiceSupported) "${l.nativeName} 🔊" else l.nativeName,style=MaterialTheme.typography.titleMedium,textAlign=TextAlign.Center)
      }
     }
    }

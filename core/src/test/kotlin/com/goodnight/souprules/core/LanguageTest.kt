@@ -31,7 +31,7 @@ class LanguageTest {
   assertEquals(Lang.MS,Lang.fromTag("ms-MY"))
   assertEquals(Lang.ID,Lang.fromTag("in-ID"))
   assertEquals(Lang.ID,Lang.fromTag("id"))
-  assertNull(Lang.fromTag("fr-FR"))
+  assertNull(Lang.fromTag("de-DE"))
   assertNull(Lang.fromTag(null))
  }
 
@@ -51,21 +51,23 @@ class LanguageTest {
   assertEquals(Lang.TH,LanguageResolver.resolve(null,null,"th-TH"))
   // 렌터카 기기 언어가 한국어면 외국인 운전자 기준 영어
   assertEquals(Lang.EN,LanguageResolver.resolve(null,null,"ko-KR"))
-  assertEquals(Lang.EN,LanguageResolver.resolve(null,null,"fr-FR"))
+  assertEquals(Lang.EN,LanguageResolver.resolve(null,null,"de-DE"))
  }
 
- @Test fun voiceFallsBackToEnglishThenNothing() {
+ @Test fun unofficialLanguageGoesStraightToEnglishThenNothing() {
+  // ms-MY는 Pleos 공식 로케일이 아니므로 시도하지 않고 영어로 안내합니다.
   val v=VoiceNegotiator(Lang.MS)
-  assertEquals("ms-MY",v.current!!.locale.toLanguageTag()); assertFalse(v.degraded)
-  assertEquals(Lang.EN,v.fail()!!.lang); assertTrue(v.degraded)
-  assertEquals("en-GB",v.fail()!!.locale.toLanguageTag())
+  assertEquals("en-US",v.current!!.locale.toLanguageTag()); assertTrue(v.degraded)
   assertNull(v.fail()); assertTrue(v.exhausted)
   assertNull(v.fail())
  }
 
- @Test fun hantTriesTaiwanThenHongKong() {
-  assertEquals(listOf("zh-TW","zh-HK","en-US","en-GB"),VoiceNegotiator(Lang.ZH_HANT).chain.map { it.locale.toLanguageTag() })
-  assertEquals(listOf("en-US","en-GB"),VoiceNegotiator(Lang.EN).chain.map { it.locale.toLanguageTag() })
+ @Test fun officialLanguagesTryOwnLocaleFirst() {
+  assertEquals(listOf("en-US"),VoiceNegotiator(Lang.EN).chain.map { it.locale.toLanguageTag() })
+  assertEquals(listOf("ko-KR","en-US"),VoiceNegotiator(Lang.KO).chain.map { it.locale.toLanguageTag() })
+  assertEquals(listOf("en-US"),VoiceNegotiator(Lang.ZH_HANT).chain.map { it.locale.toLanguageTag() })
+  // 공식 목록을 넓히면(예: 실차 확인 후) 그 로케일도 시도합니다.
+  assertEquals(listOf("zh-TW","zh-HK","en-US"),VoiceNegotiator(Lang.ZH_HANT,OfficialVoice.locales+setOf("zh-TW","zh-HK")).chain.map { it.locale.toLanguageTag() })
  }
 
  @Test fun summaryHeadlineAndLines() {

@@ -41,7 +41,9 @@ object Strings {
  /** 테스트용: 언어별 누락 키. */
  fun missing(lang:Lang)=Msg.entries.filter { it !in table.getValue(lang) }
 
- private val table:Map<Lang,Map<Msg,String>> by lazy { base.mapValues { (lang,m)->m+RuleStrings.table[lang].orEmpty() } }
+ private val table:Map<Lang,Map<Msg,String>> by lazy {
+  Lang.entries.associateWith { l->base[l].orEmpty()+RuleStrings.table[l].orEmpty()+EuroStrings.table[l].orEmpty() }
+ }
 
  private val base:Map<Lang,Map<Msg,String>> = mapOf(
   Lang.EN to mapOf(
