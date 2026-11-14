@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 규칙 아이콘(흰색 단색). 화면에서는 심각도 색으로 칠하고, 알림 작은 아이콘으로도 씁니다. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android" android:width="24dp" android:height="24dp" android:viewportWidth="24" android:viewportHeight="24">
+  <path android:pathData="M7,21V12a4,4 0 0 1 4,-4h5.5" android:strokeColor="#FFFFFFFF" android:strokeWidth="2.4" android:strokeLineCap="round" android:strokeLineJoin="round" android:fillColor="#00000000"/>
+  <path android:pathData="M15.5,4L21,8L15.5,12Z" android:fillColor="#FFFFFFFF"/>
+</vector>
