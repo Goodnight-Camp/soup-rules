@@ -8,6 +8,9 @@ import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.SharedFlow
+import kotlinx.coroutines.flow.asSharedFlow
 import java.time.Instant
 
 data class ShownAlert(val alert:Alert,val shownAtElapsed:Long)
@@ -44,6 +47,9 @@ class Coach(
  private fun newEngine()=CoachEngine(zones).also { it.hipass=prefs.hipass }
  private val _ui=MutableStateFlow(CoachUiState(sampleZones=zones.hasSample))
  val ui:StateFlow<CoachUiState> =_ui.asStateFlow()
+ private val _alerts=MutableSharedFlow<Alert>(extraBufferCapacity=16)
+ /** 새 안내가 나올 때마다(앱이 뒤에 있을 때 화면 위 알림을 띄우는 데 씀). */
+ val alerts:SharedFlow<Alert> =_alerts.asSharedFlow()
  private var demoJob:Job?=null
  private var demoMisses=listOf<NearMiss>()
  private var lastSpoken:Alert?=null
@@ -75,7 +81,8 @@ class Coach(
   step.alerts.forEach { a->
    s=s.copy(current=ShownAlert(a,SystemClock.elapsedRealtime()),recent=(listOf(a)+s.recent).take(6))
    lastSpoken=a
-   voice.say(a.key,a.severity) { l->Strings.render(l,a) }
+   voice.say(a.key,a.severity,earcon=true) { l->Strings.render(l,a) }
+   _alerts.tryEmit(a)
   }
   _ui.value=s
   if(step.summaryDue) speakSummary(detailed=false)

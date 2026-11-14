@@ -43,8 +43,11 @@ interface Voice {
  val state:StateFlow<VoiceState>
  fun setLanguage(lang:Lang)
  fun setMuted(muted:Boolean)
- /** [render]는 TTS가 실제로 말하는 언어로 문장을 만듭니다(영어로 내려간 경우 영어 문구). */
- fun say(key:String,severity:Severity,render:(Lang)->String)
+ /**
+  * [render]는 TTS가 실제로 말하는 언어로 문장을 만듭니다(영어로 내려간 경우 영어 문구).
+  * [earcon]이면 말하기 직전에 심각도 효과음을 냅니다. 음성을 쓸 수 없어도 효과음은 냅니다(음소거 때는 둘 다 끔).
+  */
+ fun say(key:String,severity:Severity,earcon:Boolean=false,render:(Lang)->String)
  /** 한 번 듣고 최종 결과를 돌려줍니다. 실패하면 null. */
  fun listen(onResult:(String?)->Unit)
  /** 차량 음성 엔진이 로케일마다 말하기·듣기를 지원하는지 직접 확인합니다(디버그). 끝나면 운전자 언어로 되돌립니다. */
@@ -61,6 +64,9 @@ interface Voice {
 class PleosVoice(context:Context):Voice {
  private val main=Handler(Looper.getMainLooper())
  private val tts=TextToSpeech(context,TtsMode.ON_DEVICE)
+ private val earcons=EarconPlayer(context)
+ /** 효과음이 끝난 뒤 말하기 예약. 더 급한 안내가 끼어들면 취소합니다. */
+ private var pendingSpeak:Runnable?=null
  private val stt=SpeechToText(context,SttMode.ON_DEVICE)
  private val _state=MutableStateFlow(VoiceState())
  override val state=_state.asStateFlow()
@@ -152,31 +158,43 @@ class PleosVoice(context:Context):Voice {
 
  override fun setMuted(muted:Boolean) {
   _state.value=_state.value.copy(muted=muted)
-  if(muted) { runCatching { tts.stop() }; queue.clear(); renderers.clear() }
+  if(muted) { cancelPending(); earcons.stop(); runCatching { tts.stop() }; queue.clear(); renderers.clear() }
  }
 
- override fun say(key:String,severity:Severity,render:(Lang)->String) {
+ override fun say(key:String,severity:Severity,earcon:Boolean,render:(Lang)->String) {
   val s=_state.value
-  val lang=s.speaking ?: return
-  if(!s.ttsReady || (s.muted && key!="unmuted")) return
-  val item=Announcement(render(lang),severity,key)
+  if(s.muted && key!="unmuted") return
+  val lang=s.speaking
+  if(!s.ttsReady || lang==null) { if(earcon) earcons.play(severity); return }
+  val item=Announcement(render(lang),severity,key,earcon)
   when(val action=queue.offer(item)) {
-   is QueueAction.Speak->{ renderers[key]=render; if(action.interrupt) runCatching { tts.stop() }; speakNow(action.item) }
+   is QueueAction.Speak->{ renderers[key]=render; if(action.interrupt) { cancelPending(); runCatching { tts.stop() } }; speakNow(action.item) }
    QueueAction.Queued->renderers[key]=render
    QueueAction.Dropped->Unit
   }
  }
 
  private fun speakNow(a:Announcement) {
-  runCatching { tts.speak(a.text,true) }.onFailure { Log.w(TAG,"TTS speak 실패 ${it.message}"); main.post { next() } }
+  cancelPending()
+  val speak=Runnable {
+   pendingSpeak=null
+   runCatching { tts.speak(a.text,true) }.onFailure { Log.w(TAG,"TTS speak 실패 ${it.message}"); main.post { next() } }
+  }
+  if(!a.earcon) { speak.run(); return }
+  // 효과음 → 짧은 틈 → 음성. 효과음이 실패하면 바로 말합니다.
+  val ms=earcons.play(a.severity)
+  pendingSpeak=speak
+  main.postDelayed(speak,if(ms>0) ms+80 else 0)
  }
+
+ private fun cancelPending() { pendingSpeak?.let { main.removeCallbacks(it) }; pendingSpeak=null }
 
  /** 언어가 바뀐 뒤(폴백) 같은 안내를 새 언어로 다시 말합니다. */
  private fun respeak(old:Announcement) {
   val lang=_state.value.speaking ?: return
   val render=renderers[old.key] ?: return next()
   queue.clear(); renderers.clear()
-  say(old.key,old.severity,render)
+  say(old.key,old.severity,false,render)
   Log.i(TAG,"TTS 폴백 → $lang")
  }
 
@@ -252,6 +270,7 @@ class PleosVoice(context:Context):Voice {
 
  override fun close() {
   main.removeCallbacksAndMessages(null)
+  earcons.stop()
   runCatching { tts.stop(); stt.stop() }
   runCatching { tts.removeEventListener(ttsEvents); stt.removeListener(sttEvents) }
   runCatching { tts.release(); stt.release() }
@@ -263,7 +282,7 @@ class SilentVoice:Voice {
  override val state=MutableStateFlow(VoiceState())
  override fun setLanguage(lang:Lang) { state.value=state.value.copy(wanted=lang) }
  override fun setMuted(muted:Boolean) { state.value=state.value.copy(muted=muted) }
- override fun say(key:String,severity:Severity,render:(Lang)->String)=Unit
+ override fun say(key:String,severity:Severity,earcon:Boolean,render:(Lang)->String)=Unit
  override fun listen(onResult:(String?)->Unit)=onResult(null)
  override fun close()=Unit
 }

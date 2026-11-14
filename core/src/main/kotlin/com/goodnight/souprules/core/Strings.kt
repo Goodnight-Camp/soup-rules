@@ -22,6 +22,10 @@ enum class Msg {
  SUMMARY_NONE, SUMMARY_ONE, SUMMARY_MANY,
  NM_SCHOOL_SPEEDING, NM_RIGHT_TURN, NM_BUS_LANE_STOP, NM_SCHOOL_PARKING, NM_PARKING_CCTV, AMOUNT,
  NM_TURN_NO_SIGNAL, NM_LANE_CHANGE, NM_SEATBELT, NM_ROUNDABOUT, NM_NO_STOPPING, NM_SCHOOL_CROSSWALK,
+ // 안내 제목(짧게)
+ H_RIGHT_STOP, H_RIGHT_ARROW, H_CROSSWALK, H_STOP_CROSSWALK, H_SCHOOL, H_SLOW_DOWN, H_SCHOOL_BUS,
+ H_BUS_LANE, H_NO_STOP, H_PARKING_CAMERA, H_PARKING_RULES, H_SIGNAL, H_SEATBELT, H_ROUNDABOUT, H_WRONG_WAY,
+ H_LEFT_ARROW, H_UNPROTECTED_LEFT, H_TOLL,
 }
 
 object Strings {
@@ -42,7 +46,7 @@ object Strings {
  fun missing(lang:Lang)=Msg.entries.filter { it !in table.getValue(lang) }
 
  private val table:Map<Lang,Map<Msg,String>> by lazy {
-  Lang.entries.associateWith { l->base[l].orEmpty()+RuleStrings.table[l].orEmpty()+EuroStrings.table[l].orEmpty() }
+  Lang.entries.associateWith { l->base[l].orEmpty()+RuleStrings.table[l].orEmpty()+EuroStrings.table[l].orEmpty()+HeadlineStrings.table[l].orEmpty() }
  }
 
  private val base:Map<Lang,Map<Msg,String>> = mapOf(
