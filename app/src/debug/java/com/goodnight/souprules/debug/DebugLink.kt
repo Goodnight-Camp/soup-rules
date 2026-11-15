@@ -31,6 +31,9 @@ object DebugLink {
  private var ws:WebSocket?=null
  private var connected=false
  private var started=false
+ // 서버 주소 후보(쉼표로 여러 개). 순서대로 시도하고, 붙은 곳은 끊겨도 먼저 재시도합니다.
+ private val urls=BuildConfig.COCKPIT_WS.split(",").map { it.trim() }.filter { it.isNotEmpty() }.ifEmpty { listOf("ws://localhost:8765") }
+ private var urlIndex=0
  // state는 최소 간격 100ms로 묶어 보냅니다. summary는 묶이면서 사라지지 않게 따로 보관합니다.
  private var sendQueued=false
  private var pendingSummary=false
@@ -45,12 +48,14 @@ object DebugLink {
  }
 
  private fun connect() {
-  val url=BuildConfig.COCKPIT_WS+"/?role=app"
+  val base=urls[urlIndex%urls.size]
+  val url=base+"/?role=app"
+  Log.i(TAG,"가상 내비 접속 시도 $url")
   ws=client.newWebSocket(Request.Builder().url(url).build(),object:WebSocketListener() {
    override fun onOpen(webSocket:WebSocket,response:Response) {
     main.post {
      connected=true
-     Log.i(TAG,"가상 내비 연결됨 $url")
+     Log.i(TAG,"가상 내비 연결됨 $base")
      webSocket.send(JSONObject().put("type","hello").put("app","souprules").put("version",BuildConfig.VERSION_NAME).toString())
      queueState()
     }
@@ -75,6 +80,7 @@ object DebugLink {
    coach.endSim()
    Log.i(TAG,"연결 끊김: 시뮬레이션 정리")
   }
+  if(!wasConnected) urlIndex++   // 접속 자체가 실패했을 때만 다음 후보로. 붙었다 끊긴 곳은 그대로 재시도.
   main.postDelayed({ if(ws==null) connect() },2000)
  }
 

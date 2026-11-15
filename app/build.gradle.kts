@@ -13,8 +13,13 @@ android {
  lint { abortOnError = true; checkReleaseBuilds = false }
  buildTypes {
   debug {
-   // 가상 내비(tools/cockpit) 중계 서버 주소. adb reverse가 안 되는 에뮬레이터는 ws://10.0.2.2:8765 로 바꿉니다.
-   buildConfigField("String", "COCKPIT_WS", "\"ws://localhost:8765\"")
+   // 가상 내비(tools/cockpit) 중계 서버 주소. DebugLink가 쉼표로 나눠 순서대로 시도합니다.
+   // 기본: 로컬(adb reverse)을 먼저, 안 되면 아래 원격으로 폴백. Render 배포 후 cockpitRemote에 주소만 채우면 됩니다.
+   // 통째로 바꾸려면 빌드 시 -PcockpitWs=wss://<호스트> (목록 전체를 덮어씀).
+   val cockpitRemote = "wss://dashboard-cockpit.onrender.com"  // Render 배포 서버
+   val cockpitWs = (project.findProperty("cockpitWs") as String?)
+    ?: listOf("ws://localhost:8765", cockpitRemote).filter { it.isNotBlank() }.joinToString(",")
+   buildConfigField("String", "COCKPIT_WS", "\"$cockpitWs\"")
   }
  }
 }
