@@ -411,7 +411,7 @@ function projectOnRoute() {
 // ── 웹소켓 ──
 let ws;
 function connect() {
-  ws = new WebSocket(`ws://${location.host}/?role=web`);
+  ws = new WebSocket(`${location.protocol === "https:" ? "wss" : "ws"}://${location.host}/?role=web`);
   ws.onmessage = e => { try { onMessage(JSON.parse(e.data)); } catch (err) { console.error(err); } };
   ws.onclose = () => setTimeout(connect, 1500);
 }
