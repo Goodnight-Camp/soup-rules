@@ -25,7 +25,7 @@
 
      브라우저에서 http://localhost:8765 를 열고 시나리오를 고른 뒤 **주행 시작**을 누릅니다.
 
-소스에서 직접 빌드하려면 `.\gradlew.bat :app:assembleRelease`를 실행합니다. 결과물은 `app/build/outputs/apk/release/건실한 청년들_국Rule_release.apk`입니다. 가상 내비 콕핏은 디버그 빌드에서만 연결되므로, 콕핏을 쓸 때는 `.\gradlew.bat :app:installDebug`로 설치합니다.
+소스에서 직접 빌드하려면 `.\gradlew.bat :app:assembleRelease`를 실행합니다. 결과물은 `app/build/outputs/apk/release/건실한 청년들_국Rule_release.apk`입니다. 가상 내비 콕핏은 디버그 빌드에서만 연결되므로, 콕핏을 쓸 때는 `apk/건실한 청년들_국Rule_debug.apk`를 설치하거나 `.\gradlew.bat :app:installDebug`를 실행합니다.
 
 ## 테스트 환경 및 필요한 설정
 
@@ -54,4 +54,7 @@ adb shell pm grant --user 10 com.goodnight.souprules android.permission.ACCESS_F
 
 ## APK 파일
 
-[`apk/건실한 청년들_국Rule_release.apk`](apk/건실한%20청년들_국Rule_release.apk)
+| 파일 | 용도 |
+| --- | --- |
+| [`apk/건실한 청년들_국Rule_release.apk`](apk/건실한%20청년들_국Rule_release.apk) | 릴리스 빌드(제출·일반 실행) |
+| [`apk/건실한 청년들_국Rule_debug.apk`](apk/건실한%20청년들_국Rule_debug.apk) | 디버그 빌드(가상 내비 콕핏 데모용) |
