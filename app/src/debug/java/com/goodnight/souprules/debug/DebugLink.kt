@@ -56,7 +56,10 @@ object DebugLink {
     main.post {
      connected=true
      Log.i(TAG,"가상 내비 연결됨 $base")
-     webSocket.send(JSONObject().put("type","hello").put("app","souprules").put("version",BuildConfig.VERSION_NAME).toString())
+     // caps.simZones: begin에 실린 구역으로 판단할 수 있음. zoneIds: 앱에 들어 있는 구역(서버가 차이를 진단).
+     webSocket.send(JSONObject().put("type","hello").put("app","souprules").put("version",BuildConfig.VERSION_NAME)
+      .put("caps",JSONArray(listOf("simZones","lang")))
+      .put("zoneIds",JSONArray(app?.coach?.bundledZoneIds.orEmpty())).toString())
      queueState()
     }
    }
@@ -95,6 +98,10 @@ object DebugLink {
      virtualNow=msg.optString("virtualStart").takeIf { it.isNotEmpty() }?.let { Instant.parse(it) },
      // 시나리오 운전자 언어(예: 사례 1은 zh-Hant, 사례 2는 fr). 없으면 앱의 현재 언어 그대로.
      lang=Lang.fromTag(msg.optString("lang").takeIf { it.isNotEmpty() }),
+     // 서버(저장소)의 최신 구역. 앱에 든 구역이 옛것이어도 시나리오 구역에서 안내가 나오게 합니다.
+     simZones=msg.optJSONObject("zones")?.let { z-> runCatching { ZoneJson.parse(z.toString()) }
+      .onSuccess { Log.i(TAG,"시뮬레이션 구역 ${it.zones.size}개(서버 제공)") }
+      .onFailure { Log.w(TAG,"서버 구역 읽기 실패, 앱 구역 사용: ${it.message}") }.getOrNull() },
     )
    }
    "end"->coach.endSim()

@@ -4,10 +4,10 @@
 | --- | --- |
 | `건실한 청년들_국Rule_release.apk` | 릴리스 빌드(versionName 0.1.0). 디버그 키로 서명했습니다 |
 
-- 빌드일: 2026-11-15
-- 소스: `feat/cockpit-case-scenarios` `9760e53` (사례 시나리오 B·C + PR #3 아이콘·효과음·헤드업 알림 포함)
+- 빌드일: 2026-11-15 (핫픽스 반영)
+- 소스: `main` 핫픽스(콕핏 시나리오 구역을 서버가 앱에 전달) 시점. 사례 시나리오 B·C와 아이콘·효과음·헤드업 알림을 포함합니다
 - 확인: 단위 테스트 100개 통과. 서명은 `apksigner verify`로 확인했습니다(CN=Android Debug)
-- SHA-256: `030395c7c20304facc851ad47b8b42c983ba1edf52494ae96fcb11e76b8b2fe5`
+- SHA-256: `925cba12f18f2560dfbaf4f8f6a774c2fcc792847ccb1c749ddd4e952b5b1a84`
 - 크기: 약 38MB
 - 릴리스 빌드라 가상 내비 콕핏 연결(DebugLink)과 adb 디버그 신호 수신기가 들어 있지 않습니다. 콕핏 데모에는 `.\gradlew.bat :app:assembleDebug`로 만든 `건실한 청년들_국Rule_debug.apk`를 쓰세요.
 

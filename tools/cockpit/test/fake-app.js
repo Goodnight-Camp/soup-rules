@@ -194,7 +194,8 @@ function connect() {
   ws = new WebSocket(URL);
   ws.on("open", () => {
     console.log("[fake-app] 서버에 연결됨");
-    ws.send(JSON.stringify({ type: "hello", app: "souprules-fake", version: "0.1.0" }));
+    // 실제 앱과 같이: 구역 전달(simZones)을 지원하고, 갖고 있는 구역 id를 알립니다.
+    ws.send(JSON.stringify({ type: "hello", app: "souprules-fake", version: "0.1.0", caps: ["simZones", "lang"], zoneIds: ZONES.map(z => z.id) }));
   });
   ws.on("message", data => {
     let msg; try { msg = JSON.parse(data); } catch { return; }

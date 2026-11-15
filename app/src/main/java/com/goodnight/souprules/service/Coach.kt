@@ -47,6 +47,8 @@ class Coach(
  private fun newEngine()=CoachEngine(zones).also { it.hipass=prefs.hipass }
  private val _ui=MutableStateFlow(CoachUiState(sampleZones=zones.hasSample))
  val ui:StateFlow<CoachUiState> =_ui.asStateFlow()
+ /** 앱에 들어 있는 구역 id. 콕핏 연결 시 서버에 알려 구역 데이터 차이를 진단합니다. */
+ val bundledZoneIds:List<String> get()=zones.zones.map { it.id }
  private val _alerts=MutableSharedFlow<Alert>(extraBufferCapacity=16)
  /** 새 안내가 나올 때마다(앱이 뒤에 있을 때 화면 위 알림을 띄우는 데 씀). */
  val alerts:SharedFlow<Alert> =_alerts.asSharedFlow()
@@ -194,13 +196,15 @@ class Coach(
   * 외부(디버그 링크)에서 넣는 시뮬레이션 주행. 실제 기록·실제 차량 신호와 섞지 않습니다. 다시 부르면 초기화(reset)입니다.
   * [feedReal]이면 실제 차량 신호도 sim 엔진으로 들어오고(SDK 주행 모드), [virtualNow]로 시나리오 시각을 맞춥니다.
   * [lang]을 주면 시나리오 운전자의 언어로 화면·음성을 바꾸고, [endSim]에서 원래 언어로 되돌립니다.
+  * [simZones]를 주면 이 시뮬레이션은 앱에 들어 있는 구역 대신 그 구역으로 판단합니다(콕핏 서버의 최신 구역 파일).
+  * 그래서 앱을 다시 빌드하지 않아도 새 시나리오의 구역(회전교차로·요금소 등)에서 안내가 나옵니다.
   */
- fun beginSim(hipass:Boolean=true,feedReal:Boolean=false,virtualNow:Instant?=null,lang:Lang?=null) {
+ fun beginSim(hipass:Boolean=true,feedReal:Boolean=false,virtualNow:Instant?=null,lang:Lang?=null,simZones:ZoneIndex?=null) {
   demoJob?.cancel()
   demoMisses=emptyList()
   simFeedsReal=feedReal
   simOffset=if(virtualNow!=null) java.time.Duration.between(Instant.now(),virtualNow) else java.time.Duration.ZERO
-  simEngine=CoachEngine(zones).also { it.hipass=hipass }
+  simEngine=CoachEngine(simZones?:zones).also { it.hipass=hipass }
   _ui.value=_ui.value.copy(demo=true,current=null,recent=emptyList(),today=DaySummary.today(emptyList(),Instant.now()),activeZones=emptyList())
   if(lang!=null) {
    if(simPrevLang==null) simPrevLang=_ui.value.lang

@@ -180,7 +180,12 @@ function start(ws) {
   // SDK 주행 모드: 속도·기어·깜빡이는 앱이 에뮬레이터 SDK로 직접 읽고(실신호),
   // 서버는 보고된 속도만큼 경로 위 위치를 계산해 되돌려줍니다. 시각은 시나리오 시작 시각에서 실시간으로 흐릅니다.
   // lang: 시나리오 운전자의 언어. 앱은 시뮬레이션 동안만 그 언어로 바꾸고 끝나면 되돌립니다.
-  toApp({ type: "begin", scenario: sc.id, hipass: sc.hipass !== false, mode: S.mode, virtualStart: sc.start, ...(sc.lang ? { lang: sc.lang } : {}) });
+  // zones: 저장소의 구역 파일 그대로. 앱은 이 시뮬레이션 동안 자기 APK에 든 구역 대신 이것으로 판단합니다.
+  // (앱을 다시 빌드하지 않아도 새 시나리오 구역에서 안내가 나오게)
+  toApp({ type: "begin", scenario: sc.id, hipass: sc.hipass !== false, mode: S.mode, virtualStart: sc.start,
+    ...(sc.lang ? { lang: sc.lang } : {}), zones: zonesJson });
+  const warn = appZoneWarning(sc);
+  if (warn) { S.notice = warn; console.warn(`[앱] ${warn}`); }
   const first = signalOf(sc.frames[0], sc.start);
   toApp(first);
   toWebs({ type: "frame", t: sc.frames[0].t, ...stripType(first) });
@@ -325,8 +330,28 @@ function onWebMessage(ws, msg) {
   }
 }
 
+// 앱이 begin의 구역을 쓰지 못하는 옛 버전이고, 시나리오에 필요한 구역이 앱에 없으면 경고합니다.
+// (지도에는 구역이 보이는데 앱은 그 구역을 몰라 안내·알림이 나오지 않는 상황)
+let appInfo = { caps: [], zoneIds: null };
+function appZoneWarning(sc) {
+  if ((appInfo.caps || []).includes("simZones")) return null;
+  const k = M_LAT * Math.cos(sc.frames[0].lat * Math.PI / 180);
+  const pts = sc.frames.filter(f => f.lat != null);
+  const near = zonesJson.zones.filter(z => {
+    const c = z.circle ? [z.circle.lat, z.circle.lng] : z.corridor ? z.corridor.points[0] : null;
+    return c && pts.some(f => Math.hypot((f.lat - c[0]) * M_LAT, (f.lng - c[1]) * k) < 1500);
+  }).map(z => z.id);
+  const missing = appInfo.zoneIds ? near.filter(id => !appInfo.zoneIds.includes(id)) : near.filter(id => !id.startsWith("demo-"));
+  if (missing.length === 0) return null;
+  return `앱이 옛 버전입니다: 이 시나리오 구역(${missing.join(", ")})을 앱이 몰라 안내·알림이 나오지 않습니다. 최신 디버그 빌드를 다시 설치하세요 (.\\gradlew.bat :app:installDebug).`;
+}
+
 function onAppMessage(msg) {
-  if (msg.type === "hello") { console.log(`[앱] hello ${msg.app || "?"} ${msg.version || ""}`); return; }
+  if (msg.type === "hello") {
+    appInfo = { caps: msg.caps || [], zoneIds: msg.zoneIds || null };
+    console.log(`[앱] hello ${msg.app || "?"} ${msg.version || ""} caps=${appInfo.caps.join(",") || "-"} 구역=${appInfo.zoneIds ? appInfo.zoneIds.length : "?"}`);
+    return;
+  }
   if (msg.type !== "state") return;
   S.lastState = msg;
   if (msg.today) S.lastToday = msg.today;
