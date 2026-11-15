@@ -72,6 +72,106 @@
      "end": "22:00"
     }
    ]
+  },
+  {
+   "id": "case-hk-roundabout",
+   "kind": "ROUNDABOUT",
+   "name": "예시 애월 회전교차로",
+   "circle": {
+    "lat": 33.467349,
+    "lng": 126.32461,
+    "radiusM": 25.0
+   }
+  },
+  {
+   "id": "case-hk-school",
+   "kind": "SCHOOL_ZONE",
+   "name": "예시 한림초 어린이보호구역",
+   "circle": {
+    "lat": 33.467349,
+    "lng": 126.318141,
+    "radiusM": 150.0
+   },
+   "limitKmh": 30
+  },
+  {
+   "id": "case-hk-cctv",
+   "kind": "PARKING_ENFORCEMENT",
+   "name": "예시 식당 앞 주정차 단속",
+   "circle": {
+    "lat": 33.467349,
+    "lng": 126.313829,
+    "radiusM": 40.0
+   },
+   "graceMinutes": 5,
+   "schedule": [
+    {
+     "days": "ALL",
+     "start": "07:00",
+     "end": "22:00"
+    }
+   ]
+  },
+  {
+   "id": "case-fr-toll",
+   "kind": "TOLL_PLAZA",
+   "name": "예시 고속도로 요금소",
+   "circle": {
+    "lat": 37.54,
+    "lng": 126.886805,
+    "radiusM": 40.0
+   },
+   "limitKmh": 30
+  },
+  {
+   "id": "case-fr-bus",
+   "kind": "BUS_LANE",
+   "name": "예시 시내 버스전용차로",
+   "corridor": {
+    "halfWidthM": 12.0,
+    "points": [
+     [
+      37.54,
+      126.897013
+     ],
+     [
+      37.54,
+      126.904385
+     ]
+    ]
+   },
+   "schedule": [
+    {
+     "days": "MON-FRI",
+     "start": "07:00",
+     "end": "09:00"
+    },
+    {
+     "days": "MON-FRI",
+     "start": "17:00",
+     "end": "19:00"
+    }
+   ]
+  },
+  {
+   "id": "case-fr-right",
+   "kind": "RIGHT_TURN",
+   "name": "예시 빨간불 우회전 교차로",
+   "circle": {
+    "lat": 37.54,
+    "lng": 126.906086,
+    "radiusM": 20.0
+   }
+  },
+  {
+   "id": "case-fr-crosswalk",
+   "kind": "CROSSWALK",
+   "name": "예시 우회전 후 횡단보도",
+   "circle": {
+    "lat": 37.53946,
+    "lng": 126.906222,
+    "radiusM": 6.0
+   }
   }
  ]
 }

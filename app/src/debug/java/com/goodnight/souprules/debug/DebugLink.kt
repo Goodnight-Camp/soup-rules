@@ -93,6 +93,8 @@ object DebugLink {
      hipass=msg.optBoolean("hipass",true),
      feedReal=msg.optString("mode")=="sdk",   // SDK 주행: 에뮬레이터 차량 조작(실신호)을 sim 엔진으로
      virtualNow=msg.optString("virtualStart").takeIf { it.isNotEmpty() }?.let { Instant.parse(it) },
+     // 시나리오 운전자 언어(예: 사례 1은 zh-Hant, 사례 2는 fr). 없으면 앱의 현재 언어 그대로.
+     lang=Lang.fromTag(msg.optString("lang").takeIf { it.isNotEmpty() }),
     )
    }
    "end"->coach.endSim()

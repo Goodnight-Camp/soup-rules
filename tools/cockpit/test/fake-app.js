@@ -44,7 +44,7 @@ function activeAt(z, at) {
 }
 
 // ── 가짜 판정 상태 ──
-let sim = false, lang = "en";
+let sim = false, lang = "en", prevLang = null;
 const vehicle = { speed: 0, gear: "P", turn: "OFF", lat: null, lng: null };
 let today, alert, firedAlerts, speeding, turnEpisode, parked, movedSec, droveEnough, summarySent, lastAt;
 
@@ -100,7 +100,7 @@ function step(at, summary) {
         speeding.warned = true;
         say("SCHOOL_ZONE_SPEEDING", "URGENT", `Slow down! ${Math.round(vehicle.speed)} in a ${limit} zone.`, z.id, at);
       }
-    } else if (speeding) {
+    } else if (speeding && speeding.zone === z) {   // 다른 스쿨존을 검사할 때 진행 중인 과속을 지우지 않게
       if (speeding.warned)
         miss("SCHOOL_ZONE_SPEEDING", speeding.zone, 70000, at,
           { speedKmh: Math.round(speeding.max), limitKmh: limit });
@@ -200,11 +200,17 @@ function connect() {
     let msg; try { msg = JSON.parse(data); } catch { return; }
     if (msg.type === "begin") {
       resetSession();
+      // 실제 앱과 같이: 시나리오 언어가 오면 시뮬레이션 동안만 그 언어로, end에서 되돌립니다.
+      if (msg.lang) { if (prevLang == null) prevLang = lang; lang = msg.lang; }
       if (msg.mode === "sdk") startDriver(); else stopDriver();
       console.log(`[fake-app] begin ${msg.scenario}${msg.mode === "sdk" ? " (SDK 주행: 가상 운전자)" : ""}`);
       queueState(false); return;
     }
-    if (msg.type === "end") { sim = false; alert = null; stopDriver(); console.log("[fake-app] end"); queueState(false); return; }
+    if (msg.type === "end") {
+      sim = false; alert = null; stopDriver();
+      if (prevLang != null) { lang = prevLang; prevLang = null; }
+      console.log("[fake-app] end"); queueState(false); return;
+    }
     // 언어는 앱 자체 설정입니다. 서버에서 바꾸지 않고 state.lang으로 보고만 합니다.
     if (msg.type !== "signal") return;
     // 필드 순서: 위치 → 기어 → 깜빡이 → 차속 (DemoDrive.parse와 동일)

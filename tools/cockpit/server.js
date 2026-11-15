@@ -118,7 +118,7 @@ function sessionMsg() {
     notice: S.notice,
     scenarios: [...scenarios.values()].map(s => ({
       id: s.id, title: s.title, description: s.description,
-      expect: s.expect, duration: s.frames[s.frames.length - 1].t,
+      expect: s.expect, duration: s.frames[s.frames.length - 1].t, lang: s.lang || null,
       route: s.frames.filter(f => f.lat != null).map(f => [f.lat, f.lng]),
     })),
     zones: zonesJson,
@@ -179,7 +179,8 @@ function start(ws) {
   cleanupSignals(false);
   // SDK 주행 모드: 속도·기어·깜빡이는 앱이 에뮬레이터 SDK로 직접 읽고(실신호),
   // 서버는 보고된 속도만큼 경로 위 위치를 계산해 되돌려줍니다. 시각은 시나리오 시작 시각에서 실시간으로 흐릅니다.
-  toApp({ type: "begin", scenario: sc.id, hipass: sc.hipass !== false, mode: S.mode, virtualStart: sc.start });
+  // lang: 시나리오 운전자의 언어. 앱은 시뮬레이션 동안만 그 언어로 바꾸고 끝나면 되돌립니다.
+  toApp({ type: "begin", scenario: sc.id, hipass: sc.hipass !== false, mode: S.mode, virtualStart: sc.start, ...(sc.lang ? { lang: sc.lang } : {}) });
   const first = signalOf(sc.frames[0], sc.start);
   toApp(first);
   toWebs({ type: "frame", t: sc.frames[0].t, ...stripType(first) });
