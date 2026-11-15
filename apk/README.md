@@ -2,25 +2,20 @@
 
 | 파일 | 내용 |
 | --- | --- |
-| `souprules-debug.apk` | 디버그 빌드(versionName 0.1.0). 콕핏 연결(DebugLink)과 adb 디버그 신호가 들어 있습니다 |
+| `건실한 청년들_국Rule_release.apk` | 릴리스 빌드(versionName 0.1.0). 디버그 키로 서명했습니다 |
 
 - 빌드일: 2026-11-15
-- 포함한 코드: `feat/cockpit-case-scenarios`(`6d310b8`, 사례 시나리오 B·C)에 `feat/alert-visuals-sound-main`(`f1c4d26`, PR #3 아이콘·효과음·헤드업 알림)을 합친 상태(로컬 병합 `9ea36b6`)
-- 확인: 병합 상태에서 단위 테스트 100개 통과
-- SHA-256: `464a17b0a7252303989c02319bc480c79267c01c794f75c7a5461eefd2785cd6`
-- 크기: 약 55MB. 디버그 빌드라 축소(minify)를 하지 않았습니다
+- 소스: `feat/cockpit-case-scenarios` `9760e53` (사례 시나리오 B·C + PR #3 아이콘·효과음·헤드업 알림 포함)
+- 확인: 단위 테스트 100개 통과. 서명은 `apksigner verify`로 확인했습니다(CN=Android Debug)
+- SHA-256: `030395c7c20304facc851ad47b8b42c983ba1edf52494ae96fcb11e76b8b2fe5`
+- 크기: 약 38MB
+- 릴리스 빌드라 가상 내비 콕핏 연결(DebugLink)과 adb 디버그 신호 수신기가 들어 있지 않습니다. 콕핏 데모에는 `.\gradlew.bat :app:assembleDebug`로 만든 `건실한 청년들_국Rule_debug.apk`를 쓰세요.
 
-## 설치
+## 다시 만들기
 
 ```powershell
-adb install -r apk/souprules-debug.apk
-adb shell am start -n com.goodnight.souprules/.MainActivity
+.\gradlew.bat :app:assembleRelease
+# 결과: app/build/outputs/apk/release/건실한 청년들_국Rule_release.apk
 ```
 
-처음 실행할 때 P 상태에서 위치·마이크·알림·차속 권한을 허용합니다. AAOS는 사용자별 권한이라 안 되면 `adb shell pm grant --user 10 com.goodnight.souprules android.permission.ACCESS_FINE_LOCATION`(CAR_SPEED도 같은 방식)을 실행합니다.
-
-## 주의
-
-- 서명은 Android 디버그 키입니다. 배포용이 아닙니다.
-- Pleos Connect 차량 또는 Pleos 에뮬레이터(`android.hardware.type.automotive`)에서만 설치됩니다.
-- 코드가 바뀌면 이 파일은 자동으로 갱신되지 않습니다. `.\gradlew.bat :app:assembleDebug` 결과(`app/build/outputs/apk/debug/app-debug.apk`)를 다시 복사하세요.
+파일 이름은 `app/build.gradle.kts`의 `teamName`·`appName`에서 정합니다. 정식 배포 키가 생기면 같은 파일의 `release` 서명 설정을 바꾸세요.
