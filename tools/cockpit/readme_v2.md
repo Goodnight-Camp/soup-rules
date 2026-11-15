@@ -52,7 +52,7 @@ sh gradlew :app:installDebug         # 또는 Android Studio에서 Run
 
 앱을 **P 상태에서 한 번 열고 권한을 허용**한다 (위치·CAR_SPEED → 차량 신호 수집 서비스가 시작됨).
 
-확인 포인트: 웹 좌상단 배지가 **"앱 연결됨"**, 왼쪽 아래 패널에 **P / 0 km/h**가 떠야 한다.
+확인 포인트: 웹 좌상단 배지가 **"앱 연결됨"**과 **"차량 신호 수신"**(빨간 **"차량 신호 꺼짐"**이면 시작 창에 나오는 권한 명령을 실행), 왼쪽 아래 패널에 **P / 0 km/h**가 떠야 한다.
 이 패널은 앱이 SDK로 받은 실차 값이므로, 여기까지 되면 SDK→앱→웹 체인이 산 것이다.
 
 ### 3-3. 시나리오 모드 (자동 재생, 녹화용)
@@ -73,6 +73,6 @@ sh gradlew :app:installDebug         # 또는 Android Studio에서 Run
 | 증상                               | 조치                                                                                                                                                                                                               |
 | ---------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | 앱이 붙었다 끊겼다 반복            | adb 2개(brew/SDK) 충돌. `adb kill-server && adb start-server && adb reverse tcp:8765 tcp:8765`                                                                                                                     |
-| 연결됐는데 기어 UNKNOWN·속도 안 뜸 | 서비스 미기동(권한). AAOS는 사용자별 권한: `adb shell pm grant --user 10 com.goodnight.souprules android.permission.ACCESS_FINE_LOCATION` (CAR_SPEED도 동일) 후 앱 재시작                                          |
+| 연결됐는데 기어 UNKNOWN·속도 안 뜸 (웹 배지 **차량 신호 꺼짐**) | 서비스 미기동(권한). AAOS는 사용자별 권한: `adb shell pm grant --user 10 com.goodnight.souprules android.permission.ACCESS_FINE_LOCATION` (CAR_SPEED도 동일) 후 앱 재시작                                          |
 | 8088 조작이 반영 안 됨             | 앱 체인 검증용 우회: `adb shell am broadcast --user 10 -n com.goodnight.souprules/.debug.DebugSignalReceiver -a com.goodnight.souprules.DEBUG --es gear D --es speed 40` — 이걸로 웹이 바뀌면 조작판→HAL 구간 문제 |
 | 웹이 옛 화면                       | 새로고침 (서버가 no-store라 한 번이면 됨)                                                                                                                                                                          |

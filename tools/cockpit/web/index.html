@@ -118,6 +118,7 @@
 
 <div id="badges">
   <span id="bApp" class="badge off">앱 연결 안 됨</span>
+  <span id="bCar" class="badge" style="display:none" title=""></span>
   <span id="bPhase" class="badge">IDLE</span>
   <span class="badge">시뮬레이션 신호 · 앱 실시간 판단</span>
 </div>
@@ -522,7 +523,41 @@ function renderSession() {
 }
 
 // ── 앱 state: 차속·기어·깜빡이·배너·기록. 값은 전부 앱이 보고한 것 ──
+// 앱 진단(state.app): 연결은 됐는데 에뮬레이터 기어·차속이 웹에 안 보일 때 원인을 바로 보여 줍니다.
+function renderAppHealth(st) {
+  const h = st.app, b = $("bCar");
+  if (!h) { b.style.display = "none"; return; }   // 진단을 보내지 않는 옛 앱
+  b.style.display = "inline-block";
+  const p = h.perms || {};
+  const missing = [p.location === false && "android.permission.ACCESS_FINE_LOCATION", p.carSpeed === false && "android.car.permission.CAR_SPEED"].filter(Boolean);
+  if (!h.service) {
+    b.className = "badge off";
+    b.textContent = missing.length ? "차량 신호 꺼짐 · 권한 없음" : "차량 신호 꺼짐 · 앱을 P에서 열어 주세요";
+    b.title = missing.length
+      ? "에뮬레이터 기어·차속이 앱에 들어오지 않습니다. 권한을 준 뒤 앱을 다시 여세요:\n" +
+        missing.map(m => `adb shell pm grant --user 10 com.goodnight.souprules ${m}`).join("\n") +
+        "\nadb shell am start -n com.goodnight.souprules/.MainActivity"
+      : "차량 신호 서비스가 시작되지 않았습니다: adb shell am start -n com.goodnight.souprules/.MainActivity";
+  } else if (missing.length) {
+    b.className = "badge off"; b.textContent = "차량 신호 · 차속 권한 없음";
+    b.title = missing.map(m => `adb shell pm grant --user 10 com.goodnight.souprules ${m}`).join("\n");
+  } else if (!h.carSignal) {
+    b.className = "badge"; b.textContent = "차량 신호 대기"; b.title = "서비스는 켜져 있고 아직 기어·차속 신호가 오지 않았습니다(8088 조작판에서 기어를 바꿔 보세요).";
+  } else {
+    b.className = "badge on"; b.textContent = "차량 신호 수신"; b.title = "에뮬레이터 기어·차속이 앱에 들어오고 있습니다.";
+  }
+  // 문제가 있으면 시작 창에도 해결 명령을 그대로 보여 줍니다(배지 툴팁은 마우스를 올려야 보이므로).
+  const r = $("startReason");
+  if (session && session.appConnected) {
+    const bad = b.classList.contains("off");
+    r.style.whiteSpace = "pre-line";
+    r.textContent = bad ? `${b.textContent}
+${b.title}` : "";
+  }
+}
+
 function renderState(st) {
+  renderAppHealth(st);
   const v = st.vehicle || {};
   $("spSpeed").innerHTML = (v.speed != null ? Math.round(v.speed) : "–") + "<small>km/h</small>";
   for (const g of $("spGear").children) g.className = g.dataset.g === v.gear ? "cur" : "";

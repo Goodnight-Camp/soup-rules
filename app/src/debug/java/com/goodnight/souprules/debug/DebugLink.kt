@@ -5,6 +5,7 @@ import android.os.Looper
 import android.util.Log
 import com.goodnight.souprules.BuildConfig
 import com.goodnight.souprules.SoupApp
+import com.goodnight.souprules.service.CoachService
 import com.goodnight.souprules.core.*
 import kotlinx.coroutines.launch
 import okhttp3.OkHttpClient
@@ -60,7 +61,12 @@ object DebugLink {
      webSocket.send(JSONObject().put("type","hello").put("app","souprules").put("version",BuildConfig.VERSION_NAME)
       .put("caps",JSONArray(listOf("simZones","lang")))
       .put("zoneIds",JSONArray(app?.coach?.bundledZoneIds.orEmpty())).toString())
+     // 차량 신호 서비스가 꺼져 있으면(권한 허용 직후·재설치 직후 등) 여기서 다시 시작합니다.
+     // 위치 권한이 없으면 시작할 수 없고, 그 사실은 state.app으로 웹에 보입니다.
+     app?.let { if(!CoachService.running) CoachService.start(it) }
      queueState()
+     // 서비스가 막 시작됐다면 그 결과가 웹에 보이도록 잠시 뒤 한 번 더 보냅니다.
+     main.postDelayed({ queueState() },1500)
     }
    }
    override fun onMessage(webSocket:WebSocket,text:String) {
@@ -127,6 +133,8 @@ object DebugLink {
   main.postDelayed({ sendQueued=false; sendState() },100)
  }
 
+ private fun granted(p:String)=app?.checkSelfPermission(p)==android.content.pm.PackageManager.PERMISSION_GRANTED
+
  private fun sendState() {
   val w=ws?:return
   val ui=app?.coach?.ui?.value?:return
@@ -166,6 +174,14 @@ object DebugLink {
       }
     })))
    .put("summary",pendingSummary)
+   // 진단: 웹이 "연결은 됐는데 기어가 안 바뀜"의 원인을 보여 줄 수 있게 합니다.
+   .put("app",JSONObject()
+    .put("service",CoachService.running)
+    .put("carSignal",ui.carConnected)
+    .put("perms",JSONObject()
+     .put("location",granted(android.Manifest.permission.ACCESS_FINE_LOCATION))
+     .put("carSpeed",granted("android.car.permission.CAR_SPEED"))
+     .put("mic",granted(android.Manifest.permission.RECORD_AUDIO))))
   pendingSummary=false
   w.send(o.toString())
  }

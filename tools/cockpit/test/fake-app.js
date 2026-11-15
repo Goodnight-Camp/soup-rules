@@ -170,6 +170,7 @@ let ws = null, sendTimer = null, pendingSummary = false;
 function stateMsg(summaryDue) {
   return {
     type: "state", sim, lang,
+    app: { service: true, carSignal: true, perms: { location: true, carSpeed: true, mic: true } },
     vehicle: { speed: vehicle.speed, gear: vehicle.gear, turn: vehicle.turn, lat: vehicle.lat, lng: vehicle.lng },
     alert,
     zones: ZONES.filter(z => vehicle.lat != null && zoneDist(z, vehicle.lat, vehicle.lng) <= 0).map(z => z.id),

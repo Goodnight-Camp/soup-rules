@@ -41,6 +41,8 @@ class CoachService:Service() {
   private const val ALERT_TIMEOUT_MS=10_000L
   const val DEBUG_SIGNAL="DEBUG_SIGNAL"
 
+  /** 차량·위치 신호를 받는 이 서비스가 떠 있는지(콕핏 진단용). 꺼져 있으면 기어·차속이 앱에 들어오지 않습니다. */
+  @Volatile var running=false; private set
   fun canStart(context:Context)=context.checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION)==PackageManager.PERMISSION_GRANTED
   fun start(context:Context) { if(canStart(context)) runCatching { context.startForegroundService(Intent(context,CoachService::class.java)) }.onFailure { Log.w("SoupService","시작 실패: ${it.message}") } }
  }
@@ -54,6 +56,7 @@ class CoachService:Service() {
 
  override fun onCreate() {
   super.onCreate()
+  running=true
   val nm=getSystemService(NotificationManager::class.java)
   nm.createNotificationChannel(NotificationChannel(CHANNEL,"Korea Road Rules",NotificationManager.IMPORTANCE_LOW).apply { setSound(null,null) })
   nm.createNotificationChannel(NotificationChannel(ALERT_CHANNEL,"Korea Road Rules · alerts",NotificationManager.IMPORTANCE_HIGH).apply {
@@ -143,6 +146,7 @@ class CoachService:Service() {
  }
 
  override fun onDestroy() {
+  running=false
   scope.cancel()
   car?.close(); location?.close()
   super.onDestroy()
