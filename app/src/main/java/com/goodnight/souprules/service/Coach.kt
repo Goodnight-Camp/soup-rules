@@ -180,18 +180,26 @@ class Coach(
  private var simFeedsReal=false
  /** 시나리오 시각과 실제 시각의 차. 운영 시간(버스전용차로 등) 판단을 시나리오 기준으로 맞춥니다. */
  private var simOffset:java.time.Duration=java.time.Duration.ZERO
+ /** 시뮬레이션 동안만 쓴 언어. 끝나면 이 값(시작 전 언어)으로 되돌립니다. 운전자 설정(prefs)은 건드리지 않습니다. */
+ private var simPrevLang:Lang?=null
 
  /**
   * 외부(디버그 링크)에서 넣는 시뮬레이션 주행. 실제 기록·실제 차량 신호와 섞지 않습니다. 다시 부르면 초기화(reset)입니다.
   * [feedReal]이면 실제 차량 신호도 sim 엔진으로 들어오고(SDK 주행 모드), [virtualNow]로 시나리오 시각을 맞춥니다.
+  * [lang]을 주면 시나리오 운전자의 언어로 화면·음성을 바꾸고, [endSim]에서 원래 언어로 되돌립니다.
   */
- fun beginSim(hipass:Boolean=true,feedReal:Boolean=false,virtualNow:Instant?=null) {
+ fun beginSim(hipass:Boolean=true,feedReal:Boolean=false,virtualNow:Instant?=null,lang:Lang?=null) {
   demoJob?.cancel()
   demoMisses=emptyList()
   simFeedsReal=feedReal
   simOffset=if(virtualNow!=null) java.time.Duration.between(Instant.now(),virtualNow) else java.time.Duration.ZERO
   simEngine=CoachEngine(zones).also { it.hipass=hipass }
   _ui.value=_ui.value.copy(demo=true,current=null,recent=emptyList(),today=DaySummary.today(emptyList(),Instant.now()),activeZones=emptyList())
+  if(lang!=null) {
+   if(simPrevLang==null) simPrevLang=_ui.value.lang
+   _ui.value=_ui.value.copy(lang=lang)
+   voice.setLanguage(lang)
+  }
  }
 
  /** sim 엔진에 신호를 넣습니다. 요약 시점이면 true. 세션이 없으면 무시합니다. */
@@ -208,5 +216,6 @@ class Coach(
   simFeedsReal=false
   simOffset=java.time.Duration.ZERO
   stopDemoState()
+  simPrevLang?.let { prev-> simPrevLang=null; _ui.value=_ui.value.copy(lang=prev); voice.setLanguage(prev) }
  }
 }

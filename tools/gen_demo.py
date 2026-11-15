@@ -1,6 +1,6 @@
 # 데모 주행(app/src/main/assets/demo/jeju-drive.json)과 예시 구역(app/src/main/assets/zones/jeju-sample.json)을 만듭니다.
 # 사용: python tools/gen_demo.py app/src/main/assets
-import json, math, sys
+import json, math, sys, os
 out_dir = sys.argv[1]
 A=(33.4880,126.4980); B=(33.4985,126.4980); C=(33.4985,126.5030)
 M_LAT=111195.0
@@ -53,5 +53,9 @@ zones={"version":1,"sample":True,
   {"id":"demo-cctv-1","kind":"PARKING_ENFORCEMENT","name":"예시 주정차 단속","graceMinutes":2,"circle":{"lat":33.4985,"lng":126.5020,"radiusM":40},
    "schedule":[{"days":"ALL","start":"07:00","end":"22:00"}]}
  ]}
-json.dump(zones,open(out_dir+"/zones/jeju-sample.json","w",encoding="utf-8"),ensure_ascii=False,indent=1)
+# 콕핏 사례 시나리오 구역(case-*, tools/cockpit/gen_cases.py가 추가)은 지우지 않고 유지합니다.
+zpath=out_dir+"/zones/jeju-sample.json"
+if os.path.exists(zpath):
+    zones["zones"]+=[z for z in json.load(open(zpath,encoding="utf-8"))["zones"] if not z["id"].startswith("demo-")]
+json.dump(zones,open(zpath,"w",encoding="utf-8"),ensure_ascii=False,indent=1)
 print("frames",len(frames),"duration",frames[-1]["t"],"end_s",round(end_s),"park_c",round(park_c),"school_c",round(school_c),"north",round(north))

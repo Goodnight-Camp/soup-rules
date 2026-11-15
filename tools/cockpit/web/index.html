@@ -210,6 +210,16 @@ function el(name, attrs, parent) {
 }
 function upright(e, x, y) { uprights.push({ e, x, y }); }
 
+// 구역 파일에는 여러 시나리오(제주 데모, 사례 1·2)의 예시 구역이 함께 있습니다. 이 경로 근처 것만 그립니다.
+const NEAR_ROUTE_M = 1500;
+function zoneCenter(z) { return z.circle ? [z.circle.lat, z.circle.lng] : z.corridor ? z.corridor.points[0] : null; }
+function nearRoute(z) {
+  const c = zoneCenter(z); if (!c || !sc) return false;
+  const k = 111195 * Math.cos(c[0] * Math.PI / 180);
+  return sc.route.some(p => Math.hypot((p[0] - c[0]) * 111195, (p[1] - c[1]) * k) < NEAR_ROUTE_M);
+}
+const routeZones = () => session.zones.zones.filter(nearRoute);
+
 function buildWorld() {
   world.innerHTML = ""; uprights = []; route = []; cum = []; corners = [];
   if (!sc) return;
@@ -226,7 +236,7 @@ function buildWorld() {
   el("polyline", { points: pts, fill: "none", stroke: "#4a5664", "stroke-width": 1.2, "stroke-dasharray": "5 6" });
 
   // 구역: 내비식 표시
-  for (const z of session.zones.zones) {
+  for (const z of routeZones()) {
     if (z.kind === "SCHOOL_ZONE" && z.circle) {
       const [x, y] = toWorld([z.circle.lat, z.circle.lng]), r = z.circle.radiusM;
       el("circle", { cx: x, cy: y, r, fill: "rgba(242,180,60,.10)", stroke: "var(--warn)", "stroke-width": 1.2, "stroke-dasharray": "6 4" });
@@ -260,6 +270,35 @@ function buildWorld() {
       el("rect", { x: x - 1.7, y: y + 7, width: 3.4, height: 13, fill: "#2c343c" }, g);
       label(x, y + r + 18, z.name, "var(--urgent)");
       upright(g, x, y);
+    } else if (z.kind === "ROUNDABOUT" && z.circle) {
+      // 회전교차로: 바깥 원 + 반시계 방향 화살표(한국은 반시계)
+      const [x, y] = toWorld([z.circle.lat, z.circle.lng]), r = z.circle.radiusM;
+      el("circle", { cx: x, cy: y, r, fill: "rgba(77,163,255,.08)", stroke: "var(--accent)", "stroke-width": 1.4 });
+      el("circle", { cx: x, cy: y, r: r * .38, fill: "#2c343c", stroke: "var(--accent)", "stroke-width": 1 });
+      for (const a of [0, 120, 240]) {           // 화면 좌표(y 아래)에서 반시계 = 각도 감소 방향
+        const rad = a * Math.PI / 180, rr = r * .7;
+        const px = x + rr * Math.cos(rad), py = y + rr * Math.sin(rad);
+        const tx = Math.sin(rad), ty = -Math.cos(rad);   // 반시계 진행 방향
+        el("path", { d: `M${px + tx * 6},${py + ty * 6} L${px - ty * 4 - tx * 3},${py + tx * 4 - ty * 3} L${px + ty * 4 - tx * 3},${py - tx * 4 - ty * 3} Z`, fill: "var(--accent)" });
+      }
+      label(x, y + r + 18, z.name + " ↺", "var(--accent)");
+    } else if (z.kind === "TOLL_PLAZA" && z.circle) {
+      const [x, y] = toWorld([z.circle.lat, z.circle.lng]), r = z.circle.radiusM;
+      el("rect", { x: x - r * .5, y: y - r, width: r, height: r * 2, fill: "rgba(77,163,255,.10)", stroke: "var(--accent)", "stroke-width": 1.2 });
+      const g = el("g", {});
+      el("rect", { x: x - 30, y: y - 12, width: 60, height: 24, rx: 5, fill: "#1a4fa0" }, g);
+      el("text", { x, y: y + 5, "text-anchor": "middle", "font-size": 12.5, "font-weight": 700, fill: "#fff" }, g).textContent = "Hi-pass";
+      label(x, y + r + 18, z.name, "var(--accent)");
+      upright(g, x, y);
+    } else if (z.kind === "CROSSWALK" && z.circle) {
+      const [x, y] = toWorld([z.circle.lat, z.circle.lng]), r = Math.max(6, z.circle.radiusM);
+      for (let i = -2; i <= 2; i++) el("rect", { x: x - r * 1.6, y: y + i * 4.2 - 1.4, width: r * 3.2, height: 2.8, fill: "#e8eef6", opacity: .85 });
+      label(x, y + r + 46, z.name, "var(--warn)");   // 교차로 표지 이름과 겹치지 않게 아래로
+    } else if (z.circle) {
+      // 그 밖의 구역(정차 금지 지점, 비보호 좌회전 등): 점선 원 + 이름
+      const [x, y] = toWorld([z.circle.lat, z.circle.lng]), r = z.circle.radiusM;
+      el("circle", { cx: x, cy: y, r, fill: "none", stroke: "var(--dim)", "stroke-width": 1, "stroke-dasharray": "4 4" });
+      label(x, y + r + 16, z.name, "var(--dim)");
     }
   }
 
@@ -329,7 +368,7 @@ function fitOverview() {
   let minX = 1e9, maxX = -1e9, minY = 1e9, maxY = -1e9;
   const grow = (x, y, r) => { minX = Math.min(minX, x - r); maxX = Math.max(maxX, x + r); minY = Math.min(minY, y - r); maxY = Math.max(maxY, y + r); };
   for (const [x, y] of route) grow(x, y, 20);
-  for (const z of session.zones.zones) if (z.circle) { const [x, y] = toWorld([z.circle.lat, z.circle.lng]); grow(x, y, z.circle.radiusM); }
+  for (const z of routeZones()) if (z.circle) { const [x, y] = toWorld([z.circle.lat, z.circle.lng]); grow(x, y, z.circle.radiusM); }
   const w = innerWidth, h = innerHeight;
   return { x: (minX + maxX) / 2, y: (minY + maxY) / 2, rot: 0,
     scale: Math.min(w / (maxX - minX + 80), h / (maxY - minY + 80)) * .92, ax: .5, ay: .5 };
@@ -452,8 +491,10 @@ function resetCar() {
 function renderSession() {
   const s = session;
   const sel = $("selScenario");
+  // 시나리오 운전자 언어도 함께 표시합니다(앱이 주행 동안 그 언어로 바뀜).
+  const LANG_NAMES = {"en":"English","ko":"한국어","ja":"日本語","zh-Hans":"简体中文","zh-Hant":"繁體中文","ms":"Bahasa Melayu","th":"ไทย","vi":"Tiếng Việt","id":"Bahasa Indonesia","fr":"Français","es":"Español"};
   if (sel.options.length !== s.scenarios.length)
-    sel.innerHTML = s.scenarios.map(x => `<option value="${x.id}">${x.title} (${x.id})</option>`).join("");
+    sel.innerHTML = s.scenarios.map(x => `<option value="${x.id}" title="${(x.description || "").replace(/"/g, "&quot;")}">${x.title}${x.lang ? " · " + (LANG_NAMES[x.lang] || x.lang) : ""} (${x.id})</option>`).join("");
   sel.value = s.scenario || "";
   $("scDesc").textContent = sc ? sc.description || "" : "";
   $("selMode").value = s.mode;
