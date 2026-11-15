@@ -21,6 +21,20 @@ android {
     ?: listOf("ws://localhost:8765", cockpitRemote).filter { it.isNotBlank() }.joinToString(",")
    buildConfigField("String", "COCKPIT_WS", "\"$cockpitWs\"")
   }
+  release {
+   // 설치할 수 있게 디버그 키로 서명합니다. 정식 배포 키가 생기면 signingConfigs에 release를 만들어 바꾸세요.
+   signingConfig = signingConfigs.getByName("debug")
+  }
+ }
+}
+
+// 빌드 결과 파일 이름: 팀명_앱이름_빌드종류.apk (예: 건실한 청년들_국Rule_release.apk)
+val teamName = "건실한 청년들"
+val appName = "국Rule"
+android.applicationVariants.all {
+ val variant = this
+ outputs.all {
+  (this as com.android.build.gradle.internal.api.BaseVariantOutputImpl).outputFileName = "${teamName}_${appName}_${variant.buildType.name}.apk"
  }
 }
 dependencies {
