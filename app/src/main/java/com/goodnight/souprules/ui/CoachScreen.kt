@@ -18,6 +18,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.unit.sp
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -143,9 +145,18 @@ data class ScreenLayout(val twoColumns:Boolean,val narrow:Boolean,val compact:Bo
    if(alert==null) {
     Text(t(Msg.ALL_CLEAR,emptyMap()),style=if(layout.compact) MaterialTheme.typography.titleLarge else MaterialTheme.typography.headlineMedium,color=SoupColors.Muted)
    } else {
-    Text(Strings.render(lang,alert),style=if(layout.compact) MaterialTheme.typography.titleLarge else MaterialTheme.typography.headlineLarge,color=SoupColors.Text)
+    // 아이콘 + 짧은 제목을 크게(한눈에), 긴 설명은 그 아래 작게. 글을 다 읽지 않아도 무슨 안내인지 알 수 있습니다.
+    val visual=AlertVisuals.of(alert)
+    Row(verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.spacedBy(if(layout.compact) 12.dp else 20.dp)) {
+     Icon(painterResource(RuleIcons.of(visual.icon)),contentDescription=null,tint=color,
+      modifier=Modifier.size(if(layout.compact) 48.dp else 88.dp).testTag("alert-icon-${visual.icon.name}"))
+     Text(Strings.render(lang,visual.headline,visual.args),style=if(layout.compact) MaterialTheme.typography.headlineMedium else MaterialTheme.typography.displayMedium.copy(fontSize=44.sp,lineHeight=52.sp),
+      color=SoupColors.Text,fontWeight=FontWeight.Bold,modifier=Modifier.testTag("alert-headline"))
+    }
+    Text(Strings.render(lang,alert),style=if(layout.compact) MaterialTheme.typography.bodyMedium else MaterialTheme.typography.titleMedium,color=SoupColors.Muted,
+     modifier=Modifier.padding(top=if(layout.compact) 8.dp else 14.dp).testTag("alert-detail"))
     val fine=Fines.of(nearMissRule(alert.rule),alert.args["speed"]?.toIntOrNull(),alert.args["limit"]?.toIntOrNull())
-    if(fine>0) Text("~${Strings.amount(lang,fine)}",style=MaterialTheme.typography.titleMedium,color=color,modifier=Modifier.padding(top=12.dp))
+    if(fine>0) Text("~${Strings.amount(lang,fine)}",style=MaterialTheme.typography.titleMedium,color=color,modifier=Modifier.padding(top=10.dp))
    }
   }
  }
