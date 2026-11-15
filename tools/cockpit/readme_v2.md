@@ -45,15 +45,29 @@ node server.js         # http://localhost:8765
 
 ### 3-2. 앱 설치와 연결
 
+> ⚠️ **반드시 debug 빌드로 실행한다.** 콕핏 링크 코드(`DebugLink`)·`INTERNET` 권한·서버 주소는
+> 전부 `app/src/debug`에만 있다. **release 빌드는 설계상 웹에 붙지 않는다**(실차/제출용이라 네트워크 코드가 없음).
+> Android Studio에서 Run 할 땐 좌측 **Build Variants** 패널에서 `app`을 `debug`로 둘 것.
+
 ```bash
-adb reverse tcp:8765 tcp:8765        # 에뮬레이터 → PC 터널 (adb 재시작마다 다시)
-sh gradlew :app:installDebug         # 또는 Android Studio에서 Run
+# Render 서버를 쓰면 adb reverse 불필요(앱에 주소가 박혀 있음). 로컬 서버일 때만 터널을 건다.
+adb reverse tcp:8765 tcp:8765        # 로컬 서버일 때만, adb 재시작마다 다시
+sh gradlew :app:installDebug         # 또는 Android Studio에서 debug로 Run
 ```
 
-앱을 **P 상태에서 한 번 열고 권한을 허용**한다 (위치·CAR_SPEED → 차량 신호 수집 서비스가 시작됨).
+**권한 부여 (필수).** 앱을 **P 상태에서 한 번 열고** 첫 실행 때 뜨는 권한 대화상자를 허용한다.
+위치 권한이 없으면 `CoachService`가 시작되지 않고, 그러면 에뮬레이터에서 기어·속도를 바꿔도 앱이 못 받아
+**웹에 P/0으로 멈춘다**. 차속(`CAR_SPEED`)은 특수 권한이라 대화상자로 안 잡힐 수 있고,
+**재설치할 때마다 권한이 초기화**되므로, 안 되면 adb로 직접 준다:
 
-확인 포인트: 웹 좌상단 배지가 **"앱 연결됨"**과 **"차량 신호 수신"**(빨간 **"차량 신호 꺼짐"**이면 시작 창에 나오는 권한 명령을 실행), 왼쪽 아래 패널에 **P / 0 km/h**가 떠야 한다.
-이 패널은 앱이 SDK로 받은 실차 값이므로, 여기까지 되면 SDK→앱→웹 체인이 산 것이다.
+```bash
+# 사용자 id는 보통 10 (확인: adb shell am get-current-user)
+adb shell pm grant --user 10 com.goodnight.souprules android.permission.ACCESS_FINE_LOCATION
+adb shell pm grant --user 10 com.goodnight.souprules android.car.permission.CAR_SPEED
+# 부여 후 앱 재시작: adb shell am force-stop com.goodnight.souprules 후 다시 실행
+```
+
+확인 포인트: 웹 좌상단 배지가 **"앱 연결됨"**과 **"차량 신호 수신"**(빨간 **"차량 신호 꺼짐"**이면 시작 창에 나오는 권한 명령을 실행), 왼쪽 아래 패널에 실차 기어·속도가 뜨고, 8088에서 기어를 D로 바꾸면 패널도 **D로 바뀌어야** 한다. 여기까지 되면 SDK→앱→웹 체인이 산 것이다.
 
 ### 3-3. 시나리오 모드 (자동 재생, 녹화용)
 
@@ -72,7 +86,8 @@ sh gradlew :app:installDebug         # 또는 Android Studio에서 Run
 
 | 증상                               | 조치                                                                                                                                                                                                               |
 | ---------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| 앱이 붙었다 끊겼다 반복            | adb 2개(brew/SDK) 충돌. `adb kill-server && adb start-server && adb reverse tcp:8765 tcp:8765`                                                                                                                     |
-| 연결됐는데 기어 UNKNOWN·속도 안 뜸 (웹 배지 **차량 신호 꺼짐**) | 서비스 미기동(권한). AAOS는 사용자별 권한: `adb shell pm grant --user 10 com.goodnight.souprules android.permission.ACCESS_FINE_LOCATION` (CAR_SPEED도 동일) 후 앱 재시작                                          |
+| 웹에 아예 "앱 연결 안 됨"          | **release 빌드로 깔았을 가능성.** release엔 링크 코드가 없다(설계상). Build Variants를 `debug`로 바꿔 재설치                                                                                                       |
+| 앱이 붙었다 끊겼다 반복            | adb 2개(brew/SDK) 충돌. `adb kill-server && adb start-server && adb reverse tcp:8765 tcp:8765`. 영구 해결은 `brew uninstall android-platform-tools`로 adb 하나만 남기기                                            |
+| 연결은 됐는데 기어·속도가 P/0에 멈춤 (웹 배지 **차량 신호 꺼짐**) | 서비스 미기동(권한). **재설치하면 권한이 초기화됨.** `adb shell pm grant --user 10 com.goodnight.souprules android.permission.ACCESS_FINE_LOCATION` (CAR_SPEED도 동일) 후 앱 재시작. 위치 권한이 없으면 CoachService가 안 뜬다 |
 | 8088 조작이 반영 안 됨             | 앱 체인 검증용 우회: `adb shell am broadcast --user 10 -n com.goodnight.souprules/.debug.DebugSignalReceiver -a com.goodnight.souprules.DEBUG --es gear D --es speed 40` — 이걸로 웹이 바뀌면 조작판→HAL 구간 문제 |
 | 웹이 옛 화면                       | 새로고침 (서버가 no-store라 한 번이면 됨)                                                                                                                                                                          |
