@@ -7,7 +7,7 @@
 1. APK를 설치하고 앱을 실행합니다.
 
    ```powershell
-   adb install -r apk/souprules-debug.apk
+   adb install -r "apk/건실한 청년들_국Rule_release.apk"
    adb shell am start -n com.goodnight.souprules/.MainActivity
    ```
 
@@ -25,7 +25,7 @@
 
      브라우저에서 http://localhost:8765 를 열고 시나리오를 고른 뒤 **주행 시작**을 누릅니다.
 
-소스에서 직접 빌드하려면 `.\gradlew.bat :app:assembleDebug`를 실행합니다. 결과물은 `app/build/outputs/apk/debug/`에 생깁니다.
+소스에서 직접 빌드하려면 `.\gradlew.bat :app:assembleRelease`를 실행합니다. 결과물은 `app/build/outputs/apk/release/건실한 청년들_국Rule_release.apk`입니다. 가상 내비 콕핏은 디버그 빌드에서만 연결되므로, 콕핏을 쓸 때는 `.\gradlew.bat :app:installDebug`로 설치합니다.
 
 ## 테스트 환경 및 필요한 설정
 
@@ -54,4 +54,4 @@ adb shell pm grant --user 10 com.goodnight.souprules android.permission.ACCESS_F
 
 ## APK 파일
 
-[`apk/souprules-debug.apk`](apk/souprules-debug.apk)
+[`apk/건실한 청년들_국Rule_release.apk`](apk/건실한%20청년들_국Rule_release.apk)
